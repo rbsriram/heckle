@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Heckle</title>
+    <meta name="description" content="Heckle your app before your users do. Say what is wrong, your coding agent fixes it. Open source, runs on your machine." />
+    <style>
+      :root {
+        --ink: #1d1d1f;
+        --muted: #6e6e73;
+        --link: #0066cc;
+        --paper: #ffffff;
+        --panel: #f5f5f7;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--ink);
+        background: var(--paper);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        line-height: 1.5;
+      }
+      section { padding: clamp(40px, 6vh, 72px) 24px; text-align: center; }
+      .panel { background: var(--panel); }
+      .wrap { max-width: 1120px; margin: 0 auto; }
+      .narrow { max-width: 800px; }
+
+      h1 {
+        font-size: clamp(44px, 7.2vw, 84px);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.04;
+        text-wrap: balance;
+      }
+      .lede {
+        margin: 22px auto 0;
+        max-width: 660px;
+        font-size: clamp(19px, 2.5vw, 27px);
+        font-weight: 400;
+        color: var(--muted);
+      }
+
+      /* 4-up feature row, equal heading height so every body aligns */
+      .grid4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: clamp(32px, 4vw, 56px);
+        align-items: start;
+        text-align: left;
+      }
+      .grid4 h3 {
+        font-size: clamp(21px, 2.2vw, 28px);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        line-height: 1.14;
+        min-height: 2.28em;     /* reserves two lines so single-line headings still align */
+      }
+      .grid4 p {
+        margin-top: 14px;
+        font-size: clamp(16px, 1.5vw, 18px);
+        line-height: 1.5;
+        color: var(--muted);
+        text-align: justify;
+        hyphens: auto;
+      }
+
+      .agents { margin-top: 18px; font-size: clamp(18px, 2.2vw, 23px); color: var(--muted); }
+
+      /* single-line statement (no wrap; scales down to fit narrow screens) */
+      .oneline {
+        font-size: clamp(24px, 5.4vw, 50px);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+        white-space: nowrap;
+      }
+      .finale {
+        font-size: clamp(24px, 7.4vw, 78px);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        white-space: nowrap;   /* each of the two lines stays on its own line */
+      }
+
+      a.cta {
+        display: inline-block;
+        margin-top: 30px;
+        font-size: clamp(18px, 2vw, 22px);
+        color: var(--link);
+        text-decoration: none;
+      }
+      a.cta:hover { text-decoration: underline; }
+      a.cta::after { content: " \203A"; }
+      a.cta + a.cta { margin-left: 24px; }
+      .trust { margin-top: 16px; font-size: clamp(14px, 1.6vw, 17px); color: var(--muted); }
+
+      /* the wordmark, a warm coral to rose gradient, everywhere "Heckle" appears */
+      .brand {
+        background: linear-gradient(92deg, #ff6a3d 0%, #ff3d6e 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+      }
+
+      footer { padding: 36px 24px; text-align: center; color: var(--muted); font-size: 13px; }
+
+      @media (max-width: 900px) { .grid4 { grid-template-columns: repeat(2, 1fr); } }
+      @media (max-width: 560px) { .grid4 { grid-template-columns: 1fr; } .grid4 h3 { min-height: 0; } }
+
+      @media (prefers-color-scheme: dark) {
+        :root { --ink: #f5f5f7; --muted: #a1a1a6; --paper: #000000; --panel: #0a0a0a; --link: #2997ff; }
+      }
+    </style>
+  </head>
+  <body>
+    <section>
+      <div class="wrap narrow">
+        <h1><span class="brand">Heckle</span> your app before your users do.</h1>
+        <p class="lede">You use your app like a real user, say what is wrong out loud, and your coding agent fixes it. You approve every fix.</p>
+        <p class="trust">Open source. Runs on your machine.</p>
+        <a class="cta" href="#">Try it</a><a class="cta" href="#">Star on GitHub</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="wrap grid4">
+        <div>
+          <h3>Just talk.</h3>
+          <p>Click through your app and say what is off. <span class="brand">Heckle</span> attaches the DOM, console, and network automatically.</p>
+        </div>
+        <div>
+          <h3>It remembers.</h3>
+          <p>A running map of what you flagged, what got fixed, and what is still broken. Never explain a bug twice.</p>
+        </div>
+        <div>
+          <h3>You stay in control.</h3>
+          <p><span class="brand">Heckle</span> drafts the feedback. You read it. You send it. Nothing reaches your codebase on its own.</p>
+        </div>
+        <div>
+          <h3>It runs on your machine.</h3>
+          <p>Drafting, memory, and voice run locally by default, nothing leaves. Or bring any model you like: OpenAI, DeepSeek, Gemini, Groq.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap narrow">
+        <h1 class="oneline">Works with your agent.</h1>
+        <p class="agents">Claude Code. Cursor. Codex. Or anything else, from a file.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="wrap narrow">
+        <h1 class="finale">Stop screenshotting.<br />Start <span class="brand">heckling</span>.</h1>
+        <a class="cta" href="#">Try it</a><a class="cta" href="#">Star on GitHub</a>
+      </div>
+    </section>
+
+    <footer><span class="brand">Heckle</span> · open source, MIT</footer>
+  </body>
+</html>

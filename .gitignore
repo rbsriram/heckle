@@ -1,0 +1,41 @@
+node_modules/
+dist/
+build/
+
+# SwiftPM build output (stt/) - Package.resolved is committed, .build is not
+.build/
+.env
+.env.local
+*.local.md
+
+# Heckle runtime artifacts (generated): inbox + local memory db + metrics
+.heckle/
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+# Claude Code transient state (the skills dir stays tracked)
+.claude/scheduled_tasks.lock
+
+# OS / editor
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# Heavy media: GitHub blocks files >100MB. Keep raw video/audio out of git;
+# use the small GIF in assets/ for the README instead.
+*.mov
+*.mp4
+*.wav
+
+# Internal / private docs: kept local, NOT for the public repo
+CLAUDE.md
+STATE.md
+DECISIONS.md
+docs/marketing.md
+docs/spec.md
+docs/techdesign.md

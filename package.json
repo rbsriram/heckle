@@ -1,0 +1,29 @@
+{
+  "name": "heckle",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The live QA co-pilot for agentic development. Talk at your app. Ship better code.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "bin": {
+    "heckle": "apps/cli/bin/heckle.ts"
+  },
+  "scripts": {
+    "heckle": "node apps/cli/bin/heckle.ts",
+    "daemon": "node --disable-warning=ExperimentalWarning packages/daemon/src/main.ts",
+    "test": "node --test \"packages/**/test/**/*.test.ts\"",
+    "stt:build": "swift build --package-path stt -c release",
+    "typecheck": "tsc -p tsconfig.base.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.2",
+    "typescript": "6.0.3"
+  }
+}
