@@ -10,6 +10,10 @@ explaining what you just saw.
 
 ![Heckle in action: say what's wrong, and it ships the fix to your coding agent](assets/heckle-demo.gif)
 
+**The full walkthrough, with sound:**
+
+https://github.com/user-attachments/assets/90c4477c-784a-49dc-96f6-b2d280018e9f
+
 ## why i built this
 
 I build apps with AI agents, and the worst part was the loop. The agent writes the code and then
