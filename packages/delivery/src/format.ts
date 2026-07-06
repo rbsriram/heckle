@@ -5,7 +5,9 @@ import type { ContextBundle, Feedback } from "@heckle/shared";
 export function formatFeedbackMarkdown(
   feedback: Feedback,
   context: ContextBundle,
-  opts: { ts?: number } = {},
+  // ts stamps the delivered copy; receiptPath references the task context receipt. Neither is
+  // part of the canonical markdown (no opts), which is what the receipt's task_hash covers.
+  opts: { ts?: number; receiptPath?: string } = {},
 ): string {
   const consoleById = new Map(context.console.map((e) => [e.id, e]));
   const networkById = new Map(context.network.map((e) => [e.id, e]));
@@ -20,6 +22,7 @@ export function formatFeedbackMarkdown(
   if (feedback.target.selector) lines.push(`- **Selector:** \`${feedback.target.selector}\``);
   lines.push(`- **URL:** ${context.url}`);
   if (feedback.history) lines.push(`- **Memory:** ${feedback.history.note}`);
+  if (opts.receiptPath) lines.push(`- **Receipt:** \`${opts.receiptPath}\``);
   lines.push("");
 
   if (feedback.repro.length) {

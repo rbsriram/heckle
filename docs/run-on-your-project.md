@@ -136,6 +136,24 @@ Multiple apps stay isolated automatically: the session lives in each app's own `
 each dispatch runs in that app's directory. To run Heckle on two apps at once, give the second
 different ports (`HECKLE_PORT` / `--ui-port`).
 
+## Task context receipts
+
+Every Ship to agent click also writes a compact receipt to `.heckle/receipts/<task-id>.json`
+(schema `heckle.task_context_receipt.v1`). It pins down what that approval covered without
+copying the capture anywhere: sha256 hashes of your raw words (`user_report_hash`), of the exact
+task text that shipped, after any edit (`task_hash`), and of the full captured context
+(`context_hash`), plus the capture window and its counts (console/network errors, DOM events),
+an explicit privacy block, and the dispatch posture the task shipped under (agent, session mode,
+permission mode, allowed tools, and whether you edited the draft before shipping).
+
+The receipt carries the one-line task intent plus hashes and counts, never raw console text,
+network payloads, or DOM content, so it is safe to paste into a PR, an agent log, or a bug
+report. The inbox item and the fix prompt both reference the receipt path, so you (or the agent)
+can check that a task still matches the context that was approved: if `task_hash` no longer
+matches, the item was edited after shipping. The `stale_if` list names the other ways a receipt
+goes stale (route changed, dev server restarted after capture). Removing a row in the widget
+deletes its receipt along with the inbox item.
+
 ## Configure the drafting model (CLI or the widget gear)
 
 No config is needed for the local default (Ollama `qwen3:14b`). To change the model, or point it at

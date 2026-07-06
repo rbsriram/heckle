@@ -4,6 +4,7 @@ import type { ContextBundle, DeliveryResult, Feedback } from "@heckle/shared";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { formatFeedbackMarkdown } from "./format.ts";
+import { receiptRelPath } from "./receipt.ts";
 import type { DeliveryAdapter } from "./types.ts";
 
 // Strip the item with this feedback id from .heckle/inbox.md (best-effort). Items are written as
@@ -42,7 +43,9 @@ export class FileInboxAdapter implements DeliveryAdapter {
   async deliver(feedback: Feedback, context: ContextBundle): Promise<DeliveryResult> {
     try {
       mkdirSync(this.dir, { recursive: true });
-      const md = formatFeedbackMarkdown(feedback, context, { ts: Date.now() });
+      // Reference the task context receipt the daemon writes at approval (a project-relative
+      // convention, so the reference is deterministic even though the daemon owns the write).
+      const md = formatFeedbackMarkdown(feedback, context, { ts: Date.now(), receiptPath: receiptRelPath(feedback.id) });
       appendFileSync(this.inboxPath, `\n---\n\n${md}\n`);
       return { adapter: this.name, ok: true, detail: this.inboxPath };
     } catch (err) {

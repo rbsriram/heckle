@@ -3,7 +3,9 @@
 // file-inbox floor deterministically (no real `claude` spawned).
 import type { HeckleConfig, ServerMessage } from "@heckle/shared";
 import type { ModelProvider } from "@heckle/providers";
+import { formatFeedbackMarkdown, receiptRelPath } from "@heckle/delivery";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -363,6 +365,70 @@ test("remove: drops the row and strips the item from .heckle/inbox.md", async ()
     if (hist?.type !== "history") throw new Error("no history 2");
     assert.equal(hist.captures.length, 0, "capture removed");
     assert.doesNotMatch(readFileSync(inboxPath, "utf8"), /Recompute the total/, "inbox item stripped");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("approve writes a task context receipt; remove deletes it with the item", async () => {
+  const root = mkdtempSync(resolve(tmpdir(), "heckle-rcpt-"));
+  try {
+    const orch = new Orchestrator(config, root, {
+      provider: stubProvider,
+      delivery: { whichFn: async () => false }, // inbox floor; the receipt is about the approval
+      memory: null,
+      metrics: null,
+    });
+    const replies: ServerMessage[] = [];
+    const reply = (m: ServerMessage) => replies.push(m);
+
+    orch.handleMessage(JSON.stringify({ type: "trigger", intentText: "the total is wrong", context }), reply);
+    const draft = await waitFor(() => replies.find((r) => r.type === "draft"));
+    if (draft.type !== "draft") throw new Error("no draft");
+
+    // Ship an edited draft, so the receipt must cover the EDITED task text.
+    const editedIntent = "Make the checkout total recompute live";
+    orch.handleMessage(
+      JSON.stringify({ type: "approve", feedbackId: draft.feedback.id, edited: { intent: editedIntent } }),
+      reply,
+    );
+    await waitFor(() => replies.find((r) => r.type === "delivered"));
+
+    const receiptPath = resolve(root, receiptRelPath(draft.feedback.id));
+    assert.ok(existsSync(receiptPath), "receipt written at approval");
+    const r = JSON.parse(readFileSync(receiptPath, "utf8"));
+    const sha256 = (s: string) => "sha256:" + createHash("sha256").update(s).digest("hex");
+
+    assert.equal(r.schema, "heckle.task_context_receipt.v1");
+    assert.equal(r.task_id, draft.feedback.id);
+    assert.equal(r.user_report_hash, sha256("the total is wrong"), "hash of the user's raw words");
+    assert.equal(
+      r.task_hash,
+      sha256(formatFeedbackMarkdown({ ...draft.feedback, intent: editedIntent }, context)),
+      "hash of the edited task text that actually shipped",
+    );
+    assert.equal(r.dispatch.agent, "claude-code", "the routed agent (from config order)");
+    assert.equal(r.dispatch.session_mode, "persistent");
+    assert.equal(r.dispatch.permission_mode, "acceptEdits");
+    assert.equal(r.dispatch.approved_by_user, true);
+    assert.equal(r.dispatch.user_edited, true);
+    assert.equal(r.privacy.local_only, true);
+    assert.equal(r.capture_window.console_error_count, 1);
+    assert.equal(r.capture_window.network_error_count, 1);
+
+    // The inbox item points at the receipt.
+    assert.ok(
+      readFileSync(resolve(root, ".heckle", "inbox.md"), "utf8").includes(receiptRelPath(draft.feedback.id)),
+      "inbox references the receipt",
+    );
+
+    // Removing the row removes the receipt too.
+    replies.length = 0;
+    orch.handleMessage(JSON.stringify({ type: "history" }), reply);
+    const hist = replies.find((m) => m.type === "history");
+    if (hist?.type !== "history") throw new Error("no history");
+    orch.handleMessage(JSON.stringify({ type: "remove", captureId: hist.captures[0].id }), reply);
+    assert.ok(!existsSync(receiptPath), "receipt removed with its item");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

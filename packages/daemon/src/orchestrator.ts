@@ -4,7 +4,17 @@
 import type { CaptureRecord, ClientMessage, ContextBundle, DeliverySelection, Feedback, HeckleConfig, ServerMessage } from "@heckle/shared";
 import { createProvider, DRAFTING_PRESETS, type ModelProvider, providerKeyEnv } from "@heckle/providers";
 import { isNoIssue } from "@heckle/shared/feedback";
-import { createDeliveryChain, type DeliveryChain, type DeliveryDeps, isDispatchAdapter, removeInboxItem } from "@heckle/delivery";
+import {
+  buildTaskContextReceipt,
+  createDeliveryChain,
+  type DeliveryChain,
+  type DeliveryDeps,
+  isDispatchAdapter,
+  type ReceiptDispatchInfo,
+  removeInboxItem,
+  removeTaskContextReceipt,
+  writeTaskContextReceipt,
+} from "@heckle/delivery";
 import { createMemory, historyFor, type Knot, type RelatedIssue } from "@heckle/memory";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -27,6 +37,7 @@ export interface PendingFeedback {
   context: ContextBundle;
   issueId?: string; // the memory issue this draft created or matched
   captureId?: string; // the capture-history record this draft came from
+  transcript?: string; // the user's raw words, hashed into the task context receipt
 }
 
 type Reply = (msg: ServerMessage) => void;
@@ -359,7 +370,7 @@ export class Orchestrator {
         }
       }
 
-      this.pending.set(feedback.id, { feedback, context: trigger.context, issueId, captureId: trigger.id });
+      this.pending.set(feedback.id, { feedback, context: trigger.context, issueId, captureId: trigger.id, transcript: trigger.intentText });
       this.pushCapture(
         this.captures.setOutcome(trigger.id, "drafted", {
           feedbackId: feedback.id,
@@ -403,6 +414,26 @@ export class Orchestrator {
     this.metrics?.record("draft_approved", { feedbackId });
     // Remember the issue so a completed Claude Code fix can mark it fixed (open -> fixed).
     if (pending.issueId) this.issueByFeedback.set(feedbackId, pending.issueId);
+    // Emit the task context receipt: hashes and counts proving exactly WHICH captured context and
+    // WHICH task text this approval covers, plus the dispatch posture it ships under. Written
+    // before delivery so the inbox item's receipt reference points at a real file. Best-effort:
+    // a receipt failure must never block the ship.
+    try {
+      const receiptPath = writeTaskContextReceipt(
+        this.projectRoot,
+        buildTaskContextReceipt({
+          feedback,
+          context: pending.context,
+          transcript: pending.transcript,
+          captureId: pending.captureId,
+          localOnly: this.config.privacy.localOnly,
+          dispatch: this.dispatchInfo(edited !== undefined),
+        }),
+      );
+      console.log(`[heckle] receipt ${receiptPath}`);
+    } catch (err) {
+      console.warn(`[heckle] could not write receipt: ${(err as Error).message}`);
+    }
     try {
       const results = await this.delivery.deliver(feedback, pending.context);
       // Did a real agent adapter actually fire? Only then is a fix running (and only then will a
@@ -490,9 +521,37 @@ export class Orchestrator {
     if (rec.feedbackId) {
       this.pending.delete(rec.feedbackId); // if it was an un-approved draft
       removeInboxItem(this.projectRoot, rec.feedbackId); // take it out of .heckle/inbox.md
+      removeTaskContextReceipt(this.projectRoot, rec.feedbackId); // and its receipt with it
     }
     this.emit({ type: "removed", captureId });
     console.log(`[heckle] removed ${captureId}`);
+  }
+
+  // The dispatch posture for the receipt: the routed agent plus the effective session/permission
+  // knobs the DeliveryChain hands it. Fallback values mirror the adapter constructor defaults.
+  private dispatchInfo(userEdited: boolean): ReceiptDispatchInfo {
+    const agent = this.selection.agent;
+    if (agent === "inbox") return { agent, userEdited };
+    const eff = selectionToConfig(this.config, this.selection).delivery;
+    if (agent === "claude-code") {
+      return {
+        agent,
+        userEdited,
+        sessionMode: eff.claudeCode?.session ?? "persistent",
+        permissionMode: eff.claudeCode?.permissionMode ?? "acceptEdits",
+        allowedTools: eff.claudeCode?.allowedTools ?? [],
+      };
+    }
+    if (agent === "cursor") {
+      return { agent, userEdited, sessionMode: eff.cursor?.session ?? "persistent" };
+    }
+    return {
+      agent,
+      userEdited,
+      sessionMode: eff.codex?.session ?? "fresh",
+      permissionMode: `ask-for-approval:${eff.codex?.askForApproval ?? "never"}`,
+      sandbox: eff.codex?.sandbox ?? "workspace-write",
+    };
   }
 
   private persistLast(trigger: StoredTrigger): void {

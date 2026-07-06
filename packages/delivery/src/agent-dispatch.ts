@@ -9,6 +9,7 @@ import { accessSync, constants, createWriteStream, mkdirSync, readFileSync, writ
 import { existsSync } from "node:fs";
 import { delimiter, join, resolve } from "node:path";
 import { formatFeedbackMarkdown } from "./format.ts";
+import { receiptRelPath } from "./receipt.ts";
 import type { SpawnedChild, SpawnFn, WhichFn } from "./types.ts";
 
 export const defaultSpawn: SpawnFn = (cmd, args, opts) => nodeSpawn(cmd, [...args], opts);
@@ -35,7 +36,7 @@ export function buildFixPrompt(feedback: Feedback, context: ContextBundle): stri
     `Read .heckle/inbox.md and fix the open item with id ${feedback.id}, then note it done in that file.`,
     ``,
     `The item:`,
-    formatFeedbackMarkdown(feedback, context),
+    formatFeedbackMarkdown(feedback, context, { receiptPath: receiptRelPath(feedback.id) }),
   ].join("\n");
 }
 

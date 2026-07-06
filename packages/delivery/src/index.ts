@@ -10,6 +10,16 @@ import type { DeliveryAdapter, SpawnFn, WhichFn } from "./types.ts";
 
 export type { DeliveryAdapter, SpawnFn, WhichFn } from "./types.ts";
 export { formatFeedbackMarkdown } from "./format.ts";
+export {
+  buildTaskContextReceipt,
+  receiptRelPath,
+  removeTaskContextReceipt,
+  writeTaskContextReceipt,
+  RECEIPT_SCHEMA,
+  type ReceiptDispatchInfo,
+  type ReceiptInput,
+  type TaskContextReceipt,
+} from "./receipt.ts";
 export { FileInboxAdapter, removeInboxItem } from "./file-inbox.ts";
 export { ClipboardAdapter } from "./clipboard.ts";
 export { ClaudeCodeDispatchAdapter } from "./claude-code.ts";
