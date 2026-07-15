@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { installConsoleCapture, installFetchCapture, RingBuffer } from "../src/browser/buffers.ts";
 import { assembleContext } from "../src/browser/context.ts";
+import { ActionLog } from "../src/browser/actions.ts";
 
 test("RingBuffer evicts oldest beyond capacity; snapshot is a copy", () => {
   const rb = new RingBuffer<number>(3);
@@ -14,6 +15,16 @@ test("RingBuffer evicts oldest beyond capacity; snapshot is a copy", () => {
   const snap = rb.snapshot();
   snap.push(99);
   assert.equal(rb.size, 3, "snapshot must not mutate the buffer");
+});
+
+test("ActionLog caps interactions and coalesces fills", () => {
+  const log = new ActionLog(2);
+  const target = { css: "#name" };
+  log.push({ type: "fill", target, value: "a", ts: 1 });
+  log.push({ type: "fill", target, value: "ab", ts: 2 });
+  log.push({ type: "click", target: { css: "#save" }, ts: 3 });
+  log.push({ type: "click", target: { css: "#done" }, ts: 4 });
+  assert.deepEqual(log.snapshot().map((action) => action.type), ["click", "click"]);
 });
 
 test("installConsoleCapture records entries and restores", () => {
@@ -50,7 +61,7 @@ test("installFetchCapture records status/ok/duration, passes response through, r
   const buf = new RingBuffer<NetworkEntry>(10);
   const root = {
     fetch: async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      ({ status: 500, ok: false }) as Response,
+      new Response(JSON.stringify({ error: "failed" }), { status: 500, headers: { "content-type": "application/json" } }),
   };
   const restore = installFetchCapture(buf, root);
 
@@ -63,9 +74,28 @@ test("installFetchCapture records status/ok/duration, passes response through, r
   assert.equal(entry.status, 500);
   assert.equal(entry.ok, false);
   assert.equal(typeof entry.durationMs, "number");
+  assert.equal(entry.responseBody, JSON.stringify({ error: "failed" }));
 
   restore();
   assert.equal(buf.size, 1);
+});
+
+test("installFetchCapture redacts sensitive request and response fields", async () => {
+  const buf = new RingBuffer<NetworkEntry>(10);
+  const root = {
+    fetch: async () => new Response(JSON.stringify({ email: "person@example.com", total: 40 }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  };
+  installFetchCapture(buf, root);
+  await root.fetch("/api/order", {
+    method: "POST",
+    body: JSON.stringify({ password: "fake-password", qty: 2 }),
+  });
+  const [entry] = buf.snapshot();
+  assert.equal(entry.requestBody, JSON.stringify({ password: "[REDACTED]", qty: 2 }));
+  assert.equal(entry.responseBody, JSON.stringify({ email: "[REDACTED]", total: 40 }));
 });
 
 test("installFetchCapture records failures (ok:false) and rethrows", async () => {
@@ -84,7 +114,7 @@ test("installFetchCapture records failures (ok:false) and rethrows", async () =>
 
 test("installFetchCapture skips ignored URLs (Heckle's own daemon traffic)", async () => {
   const buf = new RingBuffer<NetworkEntry>(10);
-  const root = { fetch: async () => ({ status: 200, ok: true }) as Response };
+  const root = { fetch: async () => new Response("ok", { status: 200 }) };
   installFetchCapture(buf, root, (url) => url.startsWith("http://127.0.0.1:4317"));
   await root.fetch("http://127.0.0.1:4317/config");
   await root.fetch("http://127.0.0.1:4317/transcribe");
@@ -98,6 +128,8 @@ test("assembleContext snapshots all buffers + url", () => {
     console: new RingBuffer<ConsoleEntry>(10),
     network: new RingBuffer<NetworkEntry>(10),
     rrweb: new RingBuffer<unknown>(10),
+    actions: new ActionLog(50),
+    stateSeed: { localStorage: {}, sessionStorage: {}, cookies: [] },
   };
   buffers.console.push({ id: "c1", level: "error", args: ["x"], ts: 1 });
   buffers.network.push({ id: "n1", method: "POST", url: "/api/order", status: 500, ok: false, ts: 2 });

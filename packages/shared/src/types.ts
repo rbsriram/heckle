@@ -90,15 +90,74 @@ export interface NetworkEntry {
   durationMs?: number;
   requestBody?: string;
   responseBody?: string;
+  responseHeaders?: Record<string, string>;
   ts: number;
 }
 
 // What the user was pointing at when they captured: highlighted text and/or the element under
 // the last click. Lets the model resolve "this / here / that" and set a concrete target.
+export interface ReproTarget {
+  testid?: string;
+  role?: string;
+  name?: string;
+  css?: string;
+}
+
 export interface PointedTarget {
   text?: string; // highlighted text, if any
   selector?: string; // a CSS selector for the pointed element
   label?: string; // human-readable description, e.g. <button.cta> "Subscribe"
+  target?: ReproTarget;
+}
+
+export type ReproAction =
+  | { type: "goto"; url: string; ts: number }
+  | { type: "click"; target: ReproTarget; ts: number }
+  | { type: "fill"; target: ReproTarget; value: string; ts: number }
+  | { type: "press"; target: ReproTarget; value: string; ts: number }
+  | { type: "select"; target: ReproTarget; value: string; ts: number }
+  | { type: "check"; target: ReproTarget; checked: boolean; ts: number };
+
+export interface ReproStateSeed {
+  localStorage: Record<string, string>;
+  sessionStorage: Record<string, string>;
+  cookies: Array<{ name: string; value: string; domain: string; path: string }>;
+}
+
+export type ReproAssertion =
+  | { type: "text_equals"; target: ReproTarget; expected: string }
+  | { type: "console_clean"; levels: ConsoleLevel[] }
+  | { type: "no_failed_requests"; exclude: string[] };
+
+export interface ReproNetworkFixture {
+  match: string;
+  method: string;
+  status: number;
+  body_ref: string;
+  headers?: Record<string, string>;
+  recorded_at: string;
+}
+
+export interface ReproArtifact {
+  version: 1;
+  id: string;
+  issue_id: string;
+  created_at: string;
+  origin: string;
+  route: string;
+  viewport: { width: number; height: number };
+  state_seed: ReproStateSeed;
+  actions: ReproAction[];
+  network_fixtures: ReproNetworkFixture[];
+  assertions: ReproAssertion[];
+  utterance: string;
+  determinism: {
+    runs: number;
+    pass_rate: number;
+    quarantined: boolean;
+    outcomes?: boolean[];
+    last_run_at?: string;
+  };
 }
 
 export interface ContextBundle {
@@ -109,6 +168,9 @@ export interface ContextBundle {
   domSnapshotId?: string;
   rrwebEvents?: unknown[];
   selection?: PointedTarget;
+  viewport?: { width: number; height: number };
+  stateSeed?: ReproStateSeed;
+  actions?: ReproAction[];
   capturedAt: number;
 }
 
@@ -147,6 +209,8 @@ export interface Feedback {
   repro: string[];
   context: { consoleRefs: string[]; networkRefs: string[]; domSnapshotId?: string };
   fixHint?: string;
+  assertions?: ReproAssertion[];
+  reproId?: string;
   // Added by the orchestrator from memory recall; null when this is new.
   history?: HistoryAnnotation | null;
 }
@@ -178,6 +242,7 @@ export interface CaptureRecord {
   intent?: string; // the drafted instruction, if any
   severity?: string;
   feedbackId?: string;
+  reproId?: string;
   progress?: string; // one live line while the agent fix runs ("Editing Hero.tsx"), cleared when it ends
   dispatchedAt?: number; // when the fix was handed to the agent, for the widget's elapsed timer
 }

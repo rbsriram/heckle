@@ -1,7 +1,9 @@
 // Capture entry point. Wires the buffers, rrweb recorder, transport, and widget together,
 // then mounts. Called by the loader with the daemon origin. Idempotent.
 import type { ServerMessage } from "../../../shared/src/index.ts";
-import { installConsoleCapture, installFetchCapture, RingBuffer } from "./buffers.ts";
+import { installConsoleCapture, installFetchCapture, installXhrCapture, RingBuffer } from "./buffers.ts";
+import { ActionLog, installActionCapture } from "./actions.ts";
+import { captureStateSeed } from "./state.ts";
 import { assembleContext, type CaptureBuffers } from "./context.ts";
 import { startRrwebRecording } from "./recorder.ts";
 import { captureTarget, installPointerTracking } from "./target.ts";
@@ -17,11 +19,15 @@ export async function start(origin: string): Promise<void> {
     console: new RingBuffer(200),
     network: new RingBuffer(100),
     rrweb: new RingBuffer(800),
+    actions: new ActionLog(50),
+    stateSeed: captureStateSeed(),
   };
   installConsoleCapture(buffers.console);
   // Do not record Heckle's own daemon traffic (/config, /transcribe) into the app capture.
   installFetchCapture(buffers.network, globalThis, (url) => url.startsWith(origin));
+  installXhrCapture(buffers.network, (url) => url.startsWith(origin));
   startRrwebRecording(buffers.rrweb);
+  installActionCapture(buffers.actions);
   // Track what the user points at, so "change this" / "move that" resolves to a real element.
   const pointer: { el: Element | null; at: number } = { el: null, at: 0 };
   installPointerTracking(pointer);

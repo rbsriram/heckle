@@ -2,18 +2,18 @@
 // element under their last click. This is what lets a note like "change this" or "move that"
 // resolve to a concrete element, so the draft targets it instead of guessing. Heckle's own UI
 // is always ignored.
-import type { PointedTarget } from "../../../shared/src/index.ts";
+import type { PointedTarget, ReproTarget } from "../../../shared/src/index.ts";
 
 const HECKLE_HOST_ID = "heckle-root";
 
-function withinHeckle(el: Element | null): boolean {
+export function withinHeckle(el: Element | null): boolean {
   if (!el) return false;
   if (el.id === HECKLE_HOST_ID) return true;
   return typeof el.closest === "function" && el.closest(`#${HECKLE_HOST_ID}`) !== null;
 }
 
 // A stable-ish CSS selector for an element: prefer #id, else a short tag/class/nth path.
-function cssPath(el: Element): string {
+export function cssPath(el: Element): string {
   const parts: string[] = [];
   let node: Element | null = el;
   let depth = 0;
@@ -37,6 +37,48 @@ function cssPath(el: Element): string {
     depth++;
   }
   return parts.join(" > ");
+}
+
+function implicitRole(el: Element): string | undefined {
+  const tag = el.tagName.toLowerCase();
+  if (tag === "button") return "button";
+  if (tag === "a" && el.hasAttribute("href")) return "link";
+  if (tag === "textarea") return "textbox";
+  if (tag === "select") return "combobox";
+  if (tag === "input") {
+    const type = (el.getAttribute("type") ?? "text").toLowerCase();
+    if (type === "checkbox") return "checkbox";
+    if (type === "radio") return "radio";
+    if (["button", "submit", "reset"].includes(type)) return "button";
+    return "textbox";
+  }
+  return undefined;
+}
+
+function accessibleName(el: Element): string | undefined {
+  const aria = el.getAttribute("aria-label")?.trim();
+  if (aria) return aria;
+  const labelledBy = el.getAttribute("aria-labelledby");
+  if (labelledBy) {
+    const label = labelledBy
+      .split(/\s+/)
+      .map((id) => document.getElementById(id)?.textContent?.trim() ?? "")
+      .filter(Boolean)
+      .join(" ");
+    if (label) return label;
+  }
+  const value = (el as HTMLInputElement).value?.trim();
+  if (value && ["INPUT", "BUTTON"].includes(el.tagName)) return value;
+  return el.textContent?.trim().replace(/\s+/g, " ").slice(0, 200) || undefined;
+}
+
+export function targetForElement(el: Element): ReproTarget {
+  return {
+    testid: el.getAttribute("data-testid") ?? undefined,
+    role: el.getAttribute("role") ?? implicitRole(el),
+    name: accessibleName(el),
+    css: cssPath(el),
+  };
 }
 
 // A short human-readable description, e.g. <button.cta> "Subscribe".
@@ -90,5 +132,6 @@ export function captureTarget(pointer: PointerState): PointedTarget | undefined 
     text: text || undefined,
     selector: el ? cssPath(el) : undefined,
     label: el ? describe(el) : undefined,
+    target: el ? targetForElement(el) : undefined,
   };
 }

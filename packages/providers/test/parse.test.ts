@@ -39,6 +39,19 @@ test("parseDraft accepts a valid draft", () => {
   }
 });
 
+test("parseDraft accepts replay assertions", () => {
+  const result = parseDraft(JSON.stringify({
+    intent: "fix total",
+    severity: "bug",
+    target: {},
+    repro: [],
+    context: { consoleRefs: [], networkRefs: [] },
+    assertions: [{ type: "text_equals", target: { testid: "total" }, expected: "$40" }],
+  }));
+  assert.equal(result.ok, true);
+  if (result.ok && !("noIssue" in result.value)) assert.equal(result.value.assertions?.[0].type, "text_equals");
+});
+
 test("parseDraft rejects a bad severity", () => {
   const r = parseDraft(`{"intent":"x","severity":"nope","target":{},"repro":[],"context":{"consoleRefs":[],"networkRefs":[]}}`);
   assert.equal(r.ok, false);

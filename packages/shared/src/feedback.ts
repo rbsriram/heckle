@@ -8,6 +8,19 @@ import { z } from "zod";
 
 export const SeveritySchema = z.enum(["blocker", "bug", "polish"]);
 
+const ReproTargetSchema = z.object({
+  testid: z.string().optional(),
+  role: z.string().optional(),
+  name: z.string().optional(),
+  css: z.string().optional(),
+});
+
+export const ReproAssertionSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text_equals"), target: ReproTargetSchema, expected: z.string() }),
+  z.object({ type: z.literal("console_clean"), levels: z.array(z.enum(["log", "info", "warn", "error", "debug"])) }),
+  z.object({ type: z.literal("no_failed_requests"), exclude: z.array(z.string()) }),
+]);
+
 export const HistorySchema = z
   .object({
     kind: z.enum(["flagged-before", "still-open", "recurring"]),
@@ -31,6 +44,7 @@ export const RealDraftSchema = z.object({
     domSnapshotId: z.string().optional(),
   }),
   fixHint: z.string().optional(),
+  assertions: z.array(ReproAssertionSchema).optional(),
 });
 
 // The model may decline: nothing actionable to report (empty/vague input, or app works).

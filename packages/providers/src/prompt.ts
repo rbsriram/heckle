@@ -34,13 +34,21 @@ Otherwise output a draft with this schema:
     "consoleRefs": string[], // ids chosen from the Console list below that are relevant (else [])
     "networkRefs": string[]  // ids chosen from the Network list below that are relevant (else [])
   },
-  "fixHint"?: string         // optional suggested direction, not a command
+  "fixHint"?: string,        // optional suggested direction, not a command
+  "assertions"?: [
+    { "type": "text_equals", "target": { "testid"?: string, "role"?: string, "name"?: string, "css"?: string }, "expected": string }
+    | { "type": "console_clean", "levels": ("log" | "info" | "warn" | "error" | "debug")[] }
+    | { "type": "no_failed_requests", "exclude": string[] }
+  ]
 }
 
 Rules: base the draft strictly on what the user reported, do not speculate or add unrequested
 work. A successful action or a normal log is NOT a bug. consoleRefs/networkRefs MUST be ids that
 appear in the lists provided; if none apply, use []. Severity from impact: blocker =
-broken/unusable, bug = wrong behavior, polish = minor.`;
+broken/unusable, bug = wrong behavior, polish = minor.
+Propose only assertions directly supported by the user's words and captured evidence. Use text_equals
+only when the expected text is explicit, console_clean for reported console errors, and
+no_failed_requests for reported failed requests. Omit assertions when the expected result is unclear.`;
 
 function renderConsole(entries: ConsoleEntry[]): string {
   if (!entries.length) return "(none)";
@@ -68,6 +76,7 @@ export function buildDraftingPrompt(req: DraftRequest): { system: string; user: 
   const pointed = sel
     ? [
         sel.label || sel.selector ? `Pointed at: ${sel.label ?? ""} (selector: ${sel.selector ?? "n/a"})` : "",
+        sel.target ? `Stable target: ${JSON.stringify(sel.target)}` : "",
         sel.text ? `Highlighted text: "${sel.text}"` : "",
       ].filter(Boolean)
     : [];

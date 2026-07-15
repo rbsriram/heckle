@@ -22,6 +22,7 @@ export function formatFeedbackMarkdown(
   if (feedback.target.selector) lines.push(`- **Selector:** \`${feedback.target.selector}\``);
   lines.push(`- **URL:** ${context.url}`);
   if (feedback.history) lines.push(`- **Memory:** ${feedback.history.note}`);
+  if (feedback.reproId) lines.push(`- **Replay:** \`heckle replay ${feedback.reproId}\``);
   if (opts.receiptPath) lines.push(`- **Receipt:** \`${opts.receiptPath}\``);
   lines.push("");
 

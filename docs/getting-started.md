@@ -76,6 +76,19 @@ turns local-only mode off. Ollama keeps capture and drafting on your machine.
 
 That is the whole loop: notice something, say it, approve, done.
 
+## Replay the complaint
+
+The approved task includes a repro id. Run it against the local app while the dev server is up:
+
+```bash
+npx heckle-dev replay <repro-id>
+```
+
+Heckle replays it three times in headless Chromium using recorded network fixtures. Add `--live` to
+hit real endpoints, `--headed` to watch the browser, or `--url <origin>` to override the captured
+origin. Mixed outcomes are quarantined rather than silently promoted. If Chromium is absent, run
+`npx playwright@1.61.1 install chromium` once.
+
 ## Which coding agent fixes it?
 
 - **Claude Code, Cursor, or Codex**: fully automatic. Approve a task and it runs, with live progress
@@ -90,5 +103,6 @@ npx heckle-dev config              # show the current model, voice, and keys (ke
 npx heckle-dev config model ...    # change the model (see step 2)
 npx heckle-dev config voice local  # voice input: local (macOS) or webspeech (Chrome)
 npx heckle-dev dev -- <command>    # run your app with Heckle attached
+npx heckle-dev replay <repro-id>   # replay an approved complaint three times
 npx heckle-dev help                # all commands
 ```

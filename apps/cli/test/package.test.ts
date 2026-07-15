@@ -26,6 +26,8 @@ test("the npm artifact contains runtime files only", () => {
     "dist/packages/daemon/src/server.js",
     "dist/packages/capture/src/loader.js",
     "dist/packages/capture/src/browser/index.js",
+    "dist/packages/replay/src/engine.js",
+    "dist/packages/replay/src/store.js",
   ]) {
     assert.ok(files.has(required), `artifact includes ${required}`);
   }

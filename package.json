@@ -25,6 +25,7 @@
     "dist/packages/delivery/src",
     "dist/packages/memory/src",
     "dist/packages/providers/src",
+    "dist/packages/replay/src",
     "dist/packages/shared/src",
     "LICENSE",
     "README.md"
@@ -43,6 +44,7 @@
     "typecheck": "tsc -p tsconfig.base.json --noEmit"
   },
   "dependencies": {
+    "playwright": "1.61.1",
     "rrweb": "2.0.1",
     "zod": "4.4.3"
   },

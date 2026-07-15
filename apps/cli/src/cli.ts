@@ -2,6 +2,7 @@ import { runConfig } from "./commands/config.ts";
 import { runDev } from "./commands/dev.ts";
 import { runInit } from "./commands/init.ts";
 import { runMetrics } from "./commands/metrics.ts";
+import { runReplay } from "./commands/replay.ts";
 import { VERSION } from "../../../packages/shared/src/version.ts";
 import { assertSupportedNode } from "./readiness.ts";
 
@@ -14,6 +15,7 @@ Usage:
   heckle init [--agent <a>]   Teach your coding agent about Heckle (claude-code|cursor|codex|all)
   heckle config [...]         Configure the drafting model / voice / keys (or use the widget gear)
                                   e.g. heckle config model deepseek · heckle config key deepseek <key>
+  heckle replay <id> [...]    Replay a repro 3 times (opts: --live, --headed, --runs, --url)
   heckle metrics              Show local activation + retention metrics
   heckle version              Print version
   heckle help                 Show this help
@@ -34,6 +36,9 @@ export async function run(argv: string[]): Promise<void> {
       return;
     case "config":
       await runConfig(rest);
+      return;
+    case "replay":
+      await runReplay(rest);
       return;
     case "metrics":
       runMetrics();

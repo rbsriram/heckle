@@ -4,7 +4,7 @@
 import type { CaptureRecord, ClientMessage, ContextBundle, DeliverySelection, Feedback, HeckleConfig, ServerMessage } from "../../shared/src/index.ts";
 import { VERSION } from "../../shared/src/version.ts";
 import { createProvider, DRAFTING_PRESETS, type ModelProvider, providerKeyEnv } from "../../providers/src/index.ts";
-import { isNoIssue } from "../../shared/src/feedback.ts";
+import { FeedbackSchema, isNoIssue } from "../../shared/src/feedback.ts";
 import {
   buildTaskContextReceipt,
   createDeliveryChain,
@@ -24,6 +24,7 @@ import { type CaptureLog, createCaptureLog } from "./captures.ts";
 import { loadConfig, loadUserConfig, saveUserConfig } from "./config.ts";
 import { selectionFromConfig, selectionToConfig } from "./delivery-selection.ts";
 import { createMetrics, type Metrics } from "./metrics.ts";
+import { createReproArtifact, ReproStore } from "../../replay/src/index.ts";
 
 export interface StoredTrigger {
   id: string;
@@ -411,7 +412,27 @@ export class Orchestrator {
       reply({ type: "error", message: `no draft ${feedbackId} awaiting approval` });
       return;
     }
-    const feedback: Feedback = edited ? { ...pending.feedback, ...edited } : pending.feedback;
+    const parsed = FeedbackSchema.safeParse(edited ? { ...pending.feedback, ...edited } : pending.feedback);
+    if (!parsed.success) {
+      reply({ type: "error", message: `invalid approved feedback: ${parsed.error.issues[0]?.message ?? "schema error"}` });
+      return;
+    }
+    const feedback: Feedback = parsed.data;
+    try {
+      const artifact = createReproArtifact(
+        this.projectRoot,
+        feedback,
+        pending.context,
+        pending.issueId ?? `iss_${feedback.id}`,
+        pending.transcript ?? feedback.intent,
+      );
+      new ReproStore(this.projectRoot).save(artifact);
+      feedback.reproId = artifact.id;
+      if (pending.captureId) this.pushCapture(this.captures.setOutcome(pending.captureId, "drafted", { reproId: artifact.id }));
+    } catch (err) {
+      reply({ type: "error", message: `could not create repro: ${(err as Error).message}` });
+      return;
+    }
     this.metrics?.record("draft_approved", { feedbackId });
     // Remember the issue so a completed Claude Code fix can mark it fixed (open -> fixed).
     if (pending.issueId) this.issueByFeedback.set(feedbackId, pending.issueId);
@@ -519,6 +540,7 @@ export class Orchestrator {
       return;
     }
     this.captures.remove(captureId);
+    if (rec.reproId) new ReproStore(this.projectRoot).remove(rec.reproId);
     if (rec.feedbackId) {
       this.pending.delete(rec.feedbackId); // if it was an un-approved draft
       removeInboxItem(this.projectRoot, rec.feedbackId); // take it out of .heckle/inbox.md

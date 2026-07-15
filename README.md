@@ -82,6 +82,20 @@ Open the link Heckle prints (like `http://localhost:4318`). Your app looks the s
 5. Without one, the task waits in a file. Tell your agent to "check Heckle," or hit **Run it** on the
    task.
 
+## replay every complaint
+
+Every approved heckle writes a versioned artifact under `.heckle/repros/`. Replays use recorded
+network fixtures by default and resolve elements by test id, accessible role and name, then CSS.
+Common credential, session, token, password, and email fields are redacted before storage.
+
+```bash
+npx heckle-dev replay <repro-id>
+npx heckle-dev replay <repro-id> --live
+```
+
+Replay runs three times by default. Stable outcomes pass the determinism gate; mixed outcomes are
+quarantined. Install Chromium once if prompted with `npx playwright@1.61.1 install chromium`.
+
 ## which agent fixes it
 
 Claude Code, Cursor, and Codex fix automatically, pick one in the gear. Anything else picks the task

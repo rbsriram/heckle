@@ -6,7 +6,7 @@ import type { ModelProvider } from "@heckle/providers";
 import { formatFeedbackMarkdown, receiptRelPath } from "@heckle/delivery";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
@@ -81,7 +81,11 @@ test("trigger -> draft -> approve -> delivered (inbox floor)", async () => {
     assert.equal(delivered.feedbackId, feedbackId);
     assert.ok(delivered.results.some((r) => r.adapter === "file-inbox" && r.ok), "inbox written");
     assert.ok(existsSync(resolve(root, ".heckle", "inbox.md")));
-    assert.match(readFileSync(resolve(root, ".heckle", "inbox.md"), "utf8"), /Recompute the total/);
+    const inbox = readFileSync(resolve(root, ".heckle", "inbox.md"), "utf8");
+    assert.match(inbox, /Recompute the total/);
+    const reproFiles = readdirSync(resolve(root, ".heckle", "repros")).filter((file) => file.startsWith("hkl_") && file.endsWith(".json"));
+    assert.equal(reproFiles.length, 1);
+    assert.match(inbox, new RegExp(`heckle replay ${reproFiles[0].slice(0, -5)}`));
 
     // approving again -> no such pending draft
     replies.length = 0;
@@ -402,9 +406,11 @@ test("approve writes a task context receipt; remove deletes it with the item", a
     assert.equal(r.schema, "heckle.task_context_receipt.v1");
     assert.equal(r.task_id, draft.feedback.id);
     assert.equal(r.user_report_hash, sha256("the total is wrong"), "hash of the user's raw words");
+    const reproId = readdirSync(resolve(root, ".heckle", "repros")).find((file) => file.startsWith("hkl_") && file.endsWith(".json"))?.slice(0, -5);
+    assert.ok(reproId);
     assert.equal(
       r.task_hash,
-      sha256(formatFeedbackMarkdown({ ...draft.feedback, intent: editedIntent }, context)),
+      sha256(formatFeedbackMarkdown({ ...draft.feedback, intent: editedIntent, reproId }, context)),
       "hash of the edited task text that actually shipped",
     );
     assert.equal(r.dispatch.agent, "claude-code", "the routed agent (from config order)");

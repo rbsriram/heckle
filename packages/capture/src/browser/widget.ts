@@ -111,6 +111,9 @@ const STYLES = `
   .draftingbar { flex: 0 0 auto; margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: rgba(255,255,255,0.62); padding: 12px 6px; }
   .draftingbar .pip { width: 6px; height: 6px; border-radius: 50%; background: #6ea8fe; animation: pipblink 1.15s ease-in-out infinite; flex: 0 0 auto; }
   .editbar { flex: 0 0 auto; margin-top: 8px; }
+  .editlabel { display: block; margin: 8px 2px 4px; font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; }
+  .assertions { margin: 0 0 10px; font-size: 11px; color: rgba(255,255,255,0.68); }
+  .assertion { padding: 5px 7px; margin-top: 4px; border-radius: 7px; background: rgba(255,255,255,0.06); }
   .close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border: none; border-radius: 50%; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.65); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; z-index: 1; }
   .close:hover { background: rgba(255,255,255,0.16); color: #fff; }
   .gear { position: absolute; top: 14px; right: 50px; width: 30px; height: 30px; border: none; border-radius: 50%; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.65); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; z-index: 1; }
@@ -295,6 +298,8 @@ export function createWidget(options: WidgetOptions): WidgetApi {
     <div class="draftingbar" id="draftingbar" hidden><span class="pip"></span>Drafting…</div>
     <div class="editbar" id="editbar" hidden>
       <textarea id="editta" placeholder="Edit the instruction to the agent"></textarea>
+      <label class="editlabel" for="editassertions">Assertions (JSON)</label>
+      <textarea id="editassertions" placeholder="[]" spellcheck="false"></textarea>
       <div class="row">
         <button type="button" class="draftbtn ghost" id="canceledit">Cancel</button>
         <button class="send" id="shipedit">Ship to agent</button>
@@ -346,6 +351,7 @@ export function createWidget(options: WidgetOptions): WidgetApi {
   const draftingBar = panel.querySelector("#draftingbar") as HTMLDivElement;
   const editBar = panel.querySelector("#editbar") as HTMLDivElement;
   const editTa = panel.querySelector("#editta") as HTMLTextAreaElement;
+  const editAssertions = panel.querySelector("#editassertions") as HTMLTextAreaElement;
   const shipEditBtn = panel.querySelector("#shipedit") as HTMLButtonElement;
   const cancelEditBtn = panel.querySelector("#canceledit") as HTMLButtonElement;
   const gearBtn = panel.querySelector("#gear") as HTMLButtonElement;
@@ -618,8 +624,16 @@ export function createWidget(options: WidgetOptions): WidgetApi {
     if (!editing) return;
     const feedbackId = editing.feedbackId;
     const intent = editTa.value.trim();
+    let assertions: Feedback["assertions"];
+    try {
+      assertions = JSON.parse(editAssertions.value || "[]") as Feedback["assertions"];
+      if (!Array.isArray(assertions)) throw new Error("assertions must be an array");
+    } catch (err) {
+      statusEl.textContent = `Invalid assertions: ${(err as Error).message}`;
+      return;
+    }
     editing = null;
-    options.onApprove(feedbackId, intent ? { intent } : undefined);
+    options.onApprove(feedbackId, { ...(intent ? { intent } : {}), assertions });
     renderComposer();
   });
   cancelEditBtn.addEventListener("click", () => {
@@ -897,9 +911,12 @@ export function createWidget(options: WidgetOptions): WidgetApi {
         : "";
     const hint = d?.feedback.fixHint ? `<div class="fixhint">${escapeHtml(d.feedback.fixHint)}</div>` : "";
     const hist = d?.feedback.history ? `<div class="taskmeta">${escapeHtml(d.feedback.history.note)}</div>` : "";
+    const assertions = (d?.feedback.assertions ?? [])
+      .map((assertion) => `<div class="assertion">${escapeHtml(JSON.stringify(assertion))}</div>`)
+      .join("");
     // Intent + the Ship/Edit/Discard actions live in the pinned bottom bar (always visible); the
     // expanded row just carries the supporting detail (repro + receipts).
-    return `${hist}${steps ? `<ul class="steps">${steps}</ul>` : ""}${att}${hint}`;
+    return `${hist}${steps ? `<ul class="steps">${steps}</ul>` : ""}${assertions ? `<div class="assertions">Assertions${assertions}</div>` : ""}${att}${hint}`;
   };
 
   // A trailing "Remove" button for a settled row (drops the record + its inbox item).
@@ -1061,6 +1078,8 @@ export function createWidget(options: WidgetOptions): WidgetApi {
       reviewBar.querySelector("[data-editintent]")?.addEventListener("click", () => {
         editing = { feedbackId: fb };
         editTa.value = pending.intent || pending.transcript;
+        const detail = draftDetail.get(fb)?.feedback;
+        editAssertions.value = JSON.stringify(detail?.assertions ?? [], null, 2);
         renderComposer();
         setTimeout(() => editTa.focus(), 0);
       });
