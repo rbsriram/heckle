@@ -1,6 +1,6 @@
 // @heckle/delivery, the adapter chain. The file inbox is always written as the durable
 // record; the configured order picks the richest available "trigger", falling down on failure.
-import type { ContextBundle, DeliveryAdapterName, DeliveryResult, Feedback, HeckleConfig } from "@heckle/shared";
+import type { ContextBundle, DeliveryAdapterName, DeliveryResult, Feedback, HeckleConfig } from "../../shared/src/index.ts";
 import { ClaudeCodeDispatchAdapter } from "./claude-code.ts";
 import { ClipboardAdapter } from "./clipboard.ts";
 import { CodexDispatchAdapter } from "./codex.ts";

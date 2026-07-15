@@ -5,4 +5,4 @@ export { loadConfig, DEFAULT_CONFIG, loadUserConfig, saveUserConfig, userConfigP
 export { createMetrics, openMetrics, formatMetrics, Metrics, type MetricsSummary } from "./metrics.ts";
 export { startInjectingProxy, injectSnippet, type InjectingProxyOptions } from "./proxy.ts";
 // Re-exported so the CLI (which depends on @heckle/daemon) shares one source for provider config.
-export { DRAFTING_PRESETS, providerKeyEnv, type DraftingPreset } from "@heckle/providers";
+export { DRAFTING_PRESETS, providerKeyEnv, type DraftingPreset } from "../../providers/src/index.ts";

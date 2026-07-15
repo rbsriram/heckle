@@ -1,6 +1,6 @@
 // Build the drafting prompt: loose speech + runtime context -> instructions for a model
 // to emit one strict JSON Feedback draft. Kept tight and provider-neutral.
-import type { ConsoleEntry, NetworkEntry } from "@heckle/shared";
+import type { ConsoleEntry, NetworkEntry } from "../../shared/src/index.ts";
 import type { DraftRequest } from "./types.ts";
 
 const MAX_ENTRIES = 12;

@@ -2,7 +2,7 @@
 // (you dictate into it with your own OS dictation, TypeWhisper + Parakeet, or type),
 // a send button, a status line, and a review card that shows the drafted Feedback with
 // Approve / Discard. Rendered in a Shadow DOM so host styles never collide.
-import type { CaptureRecord, ConsoleEntry, DeliverySelection, Feedback, NetworkEntry } from "@heckle/shared";
+import type { CaptureRecord, ConsoleEntry, DeliverySelection, Feedback, NetworkEntry } from "../../../shared/src/index.ts";
 import { createRecorder } from "./record.ts";
 
 // Minimal Web Speech types (often absent from lib.dom). Erased at runtime.

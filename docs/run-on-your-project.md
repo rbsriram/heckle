@@ -7,31 +7,24 @@ a project other than this repo.
 ## One-time setup
 
 Prerequisites:
-- **Node 24+** (runs the TypeScript directly, no build step).
-- **Ollama** running with the drafting + embedding models pulled (the local-first default):
-  `ollama pull qwen3:14b && ollama pull nomic-embed-text`
-- Optional: **Claude Code** (`claude` on your PATH) for auto-dispatch (approve then the fix kicks off).
-- Optional voice (macOS): the local Parakeet worker, built once in this repo with
-  `npm run stt:build`. Voice is optional; you can always type.
 
-Make the `heckle` command available from anywhere:
-
-```bash
-# in the Heckle repo
-npm install
-npm link          # puts `heckle` on your PATH (symlinked to this repo)
-```
-
-If `npm link` gives you trouble, skip it and call Heckle by path from your project:
-`node /absolute/path/to/heckle/apps/cli/bin/heckle.ts <args>`.
+- **Node 24+**. Heckle runs TypeScript directly and checks the version before starting.
+- **Ollama** for the local-first default. Heckle checks whether `qwen3:14b` is installed and offers
+  to pull it. You can configure a cloud model instead.
+- Optional: **Claude Code**, **Cursor**, or **Codex** on PATH for automatic fixes. The file inbox
+  remains available without an agent.
+- Optional voice on macOS. Typing is always available; the npm package does not include a native
+  speech binary.
 
 ## Per project
 
-From your project's root, just run your dev server under Heckle:
+From your project's root, run your dev server under Heckle:
 
 ```bash
-heckle dev -- npm run dev        # or: heckle dev -- pnpm dev, next dev, vite, etc.
+npx heckle-dev dev -- npm run dev
 ```
+
+No repository clone, global installation, or npm link is required.
 
 On the **first run** Heckle automatically teaches your agent about itself (writes the inbox
 convention + a `/heckle` skill to your project) so "check Heckle" and auto-dispatch just work. No
@@ -61,11 +54,11 @@ Run with `--no-proxy` and add the widget to your app (dev only). Universal, any 
 <script src="http://127.0.0.1:4317/heckle.js"></script>
 ```
 
-Or, for Vite, the plugin (when `@heckle/capture` is resolvable in your project):
+Or, for Vite, install `heckle-dev` in the project and use its plugin export:
 
 ```ts
 // vite.config.ts
-import heckle from "@heckle/capture/vite-plugin";
+import heckle from "heckle-dev/vite-plugin";
 export default { plugins: [heckle()] };
 ```
 </details>

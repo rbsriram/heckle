@@ -1,6 +1,6 @@
 // Capture entry point. Wires the buffers, rrweb recorder, transport, and widget together,
 // then mounts. Called by the loader with the daemon origin. Idempotent.
-import type { ServerMessage } from "@heckle/shared";
+import type { ServerMessage } from "../../../shared/src/index.ts";
 import { installConsoleCapture, installFetchCapture, RingBuffer } from "./buffers.ts";
 import { assembleContext, type CaptureBuffers } from "./context.ts";
 import { startRrwebRecording } from "./recorder.ts";

@@ -1,9 +1,10 @@
 // The brain. Receives widget messages, holds captured context, drafts feedback via the
 // configured provider, and (from M3) runs the approval queue + delivery. M2 scope: on a
 // trigger, ack capture, then draft a structured Feedback and send it for review.
-import type { CaptureRecord, ClientMessage, ContextBundle, DeliverySelection, Feedback, HeckleConfig, ServerMessage } from "@heckle/shared";
-import { createProvider, DRAFTING_PRESETS, type ModelProvider, providerKeyEnv } from "@heckle/providers";
-import { isNoIssue } from "@heckle/shared/feedback";
+import type { CaptureRecord, ClientMessage, ContextBundle, DeliverySelection, Feedback, HeckleConfig, ServerMessage } from "../../shared/src/index.ts";
+import { VERSION } from "../../shared/src/version.ts";
+import { createProvider, DRAFTING_PRESETS, type ModelProvider, providerKeyEnv } from "../../providers/src/index.ts";
+import { isNoIssue } from "../../shared/src/feedback.ts";
 import {
   buildTaskContextReceipt,
   createDeliveryChain,
@@ -14,8 +15,8 @@ import {
   removeInboxItem,
   removeTaskContextReceipt,
   writeTaskContextReceipt,
-} from "@heckle/delivery";
-import { createMemory, historyFor, type Knot, type RelatedIssue } from "@heckle/memory";
+} from "../../delivery/src/index.ts";
+import { createMemory, historyFor, type Knot, type RelatedIssue } from "../../memory/src/index.ts";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -173,7 +174,7 @@ export class Orchestrator {
         // widget scopes its saved gear preference), and the current drafting model.
         reply({
           type: "ready",
-          daemon: "heckle-daemon@0.0.0",
+          daemon: `heckle-daemon@${VERSION}`,
           delivery: this.selection,
           project: this.projectRoot,
           drafting: { provider: this.config.drafting.provider, model: this.config.drafting.model, baseUrl: this.config.drafting.baseUrl },

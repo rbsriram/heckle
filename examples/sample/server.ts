@@ -3,7 +3,7 @@
 //   - POST /api/order  validates the quantity and returns the computed total
 //
 // Run it under Heckle so the widget auto-attaches:
-//   node apps/cli/bin/heckle.ts dev -- node examples/sample/server.ts
+//   npx heckle-dev dev -- node examples/sample/server.ts
 // When wrapped, HECKLE_DAEMON_URL is set and the daemon's /heckle.js is injected.
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -44,7 +44,7 @@ const server = createServer((req, res) => {
     let html = readFileSync(INDEX, "utf8");
     const tag = daemonUrl
       ? `<script src="${daemonUrl}/heckle.js"></script>`
-      : `<!-- Heckle not attached. Run: node apps/cli/bin/heckle.ts dev -- node examples/sample/server.ts -->`;
+      : `<!-- Heckle not attached. Run: npx heckle-dev dev -- node examples/sample/server.ts -->`;
     html = html.replace("</body>", `    ${tag}\n  </body>`);
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(html);

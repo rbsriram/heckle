@@ -2,7 +2,7 @@
 // element under their last click. This is what lets a note like "change this" or "move that"
 // resolve to a concrete element, so the draft targets it instead of guessing. Heckle's own UI
 // is always ignored.
-import type { PointedTarget } from "@heckle/shared";
+import type { PointedTarget } from "../../../shared/src/index.ts";
 
 const HECKLE_HOST_ID = "heckle-root";
 

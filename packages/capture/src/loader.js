@@ -22,7 +22,7 @@
       // capture still works without rrweb (console + network only)
     })
     .then(function () {
-      return import(origin + "/heckle/index.ts");
+      return import(origin + "/heckle/index.js");
     })
     .then(function (mod) {
       if (mod && typeof mod.start === "function") mod.start(origin);

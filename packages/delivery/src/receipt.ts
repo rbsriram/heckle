@@ -4,7 +4,7 @@
 // or review log: it carries the one-line task intent plus hashes and counts, never raw console
 // text, network payloads, or DOM content. Lets anyone distinguish "the task was approved" from
 // "this exact captured context was approved". (From GitHub issue #1.)
-import type { ContextBundle, Feedback } from "@heckle/shared";
+import type { ContextBundle, Feedback } from "../../shared/src/index.ts";
 import { createHash } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";

@@ -3,7 +3,7 @@
 // disables qwen3's reasoning mode. That single flag takes drafting from ~58s to ~2s on
 // qwen3:14b, and latency is the make-or-break for this product. `format: "json"`
 // constrains the output to valid JSON.
-import type { DraftInput } from "@heckle/shared/feedback";
+import type { DraftInput } from "../../shared/src/feedback.ts";
 import { parseDraft } from "./parse.ts";
 import { buildDraftingPrompt } from "./prompt.ts";
 import type { DraftRequest, ModelProvider } from "./types.ts";

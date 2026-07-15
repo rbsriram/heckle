@@ -1,6 +1,6 @@
 // The floor. Appends approved feedback to .heckle/inbox.md, every agent reads files, so
 // this never fails to transport. Always written, regardless of which adapter "fires".
-import type { ContextBundle, DeliveryResult, Feedback } from "@heckle/shared";
+import type { ContextBundle, DeliveryResult, Feedback } from "../../shared/src/index.ts";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { formatFeedbackMarkdown } from "./format.ts";

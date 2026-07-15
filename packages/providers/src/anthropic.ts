@@ -3,7 +3,7 @@
 // provider. On claude-opus-4-8 / claude-sonnet-5: sampling params (temperature/top_p/top_k)
 // are rejected and assistant prefill is gone, so JSON is forced via the system prompt +
 // robust parsing rather than a prefill. All calls server-side; the key never reaches the browser.
-import type { DraftInput } from "@heckle/shared/feedback";
+import type { DraftInput } from "../../shared/src/feedback.ts";
 import { parseDraft } from "./parse.ts";
 import { buildDraftingPrompt } from "./prompt.ts";
 import type { DraftRequest, ModelProvider } from "./types.ts";

@@ -1,7 +1,7 @@
 // The drafting provider interface. One narrow job: turn loose speech + captured runtime
 // context into a single structured, agent-ready Feedback draft. Swappable by config.
-import type { ContextBundle, Issue } from "@heckle/shared";
-import type { DraftInput } from "@heckle/shared/feedback";
+import type { ContextBundle, Issue } from "../../shared/src/index.ts";
+import type { DraftInput } from "../../shared/src/feedback.ts";
 
 export interface DraftRequest {
   transcript: string; // what the user said or typed

@@ -1,7 +1,7 @@
 // A persisted, viewable log of captures: what the user said, what was captured, and how it was
 // resolved. Kept in .heckle/captures.json (a capped array, newest first) so the history survives
 // restarts and spans sessions. Best-effort: any FS error degrades to an in-memory log.
-import type { CaptureRecord } from "@heckle/shared";
+import type { CaptureRecord } from "../../shared/src/index.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 

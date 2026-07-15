@@ -1,6 +1,6 @@
 // Render approved Feedback into the markdown an agent reads, the instruction plus the
 // resolved console/network receipts. One format, shared by every adapter.
-import type { ContextBundle, Feedback } from "@heckle/shared";
+import type { ContextBundle, Feedback } from "../../shared/src/index.ts";
 
 export function formatFeedbackMarkdown(
   feedback: Feedback,

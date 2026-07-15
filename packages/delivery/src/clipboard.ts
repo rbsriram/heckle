@@ -1,6 +1,6 @@
 // The backstop. Puts the structured feedback on the clipboard for manual paste. Never the
 // preferred path, but it works everywhere and never fails silently.
-import type { ContextBundle, DeliveryResult, Feedback } from "@heckle/shared";
+import type { ContextBundle, DeliveryResult, Feedback } from "../../shared/src/index.ts";
 import { spawn as nodeSpawn } from "node:child_process";
 import { formatFeedbackMarkdown } from "./format.ts";
 import type { DeliveryAdapter, SpawnFn } from "./types.ts";

@@ -1,5 +1,5 @@
 // @heckle/providers, ModelProvider interface + implementations, selected by config.
-import type { HeckleConfig } from "@heckle/shared";
+import type { HeckleConfig } from "../../shared/src/index.ts";
 import { AnthropicProvider } from "./anthropic.ts";
 import { OllamaProvider } from "./ollama.ts";
 import { OpenAICompatibleProvider } from "./openai-compatible.ts";

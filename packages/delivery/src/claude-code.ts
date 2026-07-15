@@ -1,7 +1,7 @@
 // The strongest path: hand the approved feedback to Claude Code as a headless task, so
 // approve-to-fix kicks off automatically. Both transport and trigger. Dispatching after
 // approval does not violate the human-approved principle, the approval click is the gate.
-import type { ContextBundle, DeliveryResult, Feedback } from "@heckle/shared";
+import type { ContextBundle, DeliveryResult, Feedback } from "../../shared/src/index.ts";
 import { randomUUID } from "node:crypto";
 import { buildFixPrompt, defaultSpawn, defaultWhich, parseClaudeStreamLine, readSessionId, runDetachedFix, writeSessionId } from "./agent-dispatch.ts";
 import type { DeliveryAdapter, SpawnFn, WhichFn } from "./types.ts";

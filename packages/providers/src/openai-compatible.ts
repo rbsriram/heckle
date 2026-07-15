@@ -1,7 +1,7 @@
 // One class covers every OpenAI-compatible chat endpoint: local Ollama
 // (http://localhost:11434/v1, no key) and DeepSeek (https://api.deepseek.com, keyed).
 // All calls are server-side (daemon); keys never touch the browser.
-import type { DraftInput } from "@heckle/shared/feedback";
+import type { DraftInput } from "../../shared/src/feedback.ts";
 import { parseDraft } from "./parse.ts";
 import { buildDraftingPrompt } from "./prompt.ts";
 import type { DraftRequest, ModelProvider } from "./types.ts";

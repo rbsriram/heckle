@@ -1,6 +1,6 @@
 // Thin WebSocket client to the daemon, with auto-reconnect. The widget stays dumb:
 // it sends triggers and renders whatever the daemon sends back.
-import type { ClientMessage, ServerMessage } from "@heckle/shared";
+import type { ClientMessage, ServerMessage } from "../../../shared/src/index.ts";
 
 export interface Transport {
   send(msg: ClientMessage): void;

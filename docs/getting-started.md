@@ -16,67 +16,54 @@ Works on macOS, Windows, and Linux. Typing works on all three; on-device voice i
   - Linux: `nvm install 24` (see [nvm](https://github.com/nvm-sh/nvm)), or your distro's package
   - Check with `node --version` (should be v24 or higher).
 - **A model for Heckle to write with.** Pick one:
-  - **Local and free:** install [Ollama](https://ollama.com) and run `ollama pull qwen3:14b`. Nothing
-    leaves your machine.
-  - **A cloud model** you already have a key for (OpenAI, DeepSeek, Gemini, Groq, and others all work).
+  - **Local and free:** install [Ollama](https://ollama.com). Heckle checks the configured model on
+    startup and offers to pull it when missing.
+  - **A cloud model** you already have a key for (OpenAI, DeepSeek, Gemini, Groq, and others work).
 - **Optional: a coding agent** to apply fixes automatically:
-  - [Claude Code](https://code.claude.com/docs), or [Cursor](https://cursor.com/install) (`cursor-agent`),
-    or Codex (`npm install -g @openai/codex`).
-  - Without one, Heckle writes the task to a file and you point your own agent at it.
+  - [Claude Code](https://code.claude.com/docs), [Cursor](https://cursor.com/install)
+    (`cursor-agent`), or Codex (`npm install -g @openai/codex`).
+  - Without one, every approved task is written to `.heckle/inbox.md`.
 
-## 1. Install
+## 1. Run your app with Heckle
 
-```bash
-git clone <the Heckle repo>
-cd heckle
-npm install
-npm link
-```
-
-That gives you a `heckle` command you can run from any of your projects.
-
-## 2. Choose the model Heckle writes with
-
-You can do this from the command line, or later from the gear icon in the Heckle panel (no terminal
-needed). From the command line:
-
-**Local and free:**
-```bash
-heckle config model ollama qwen3:14b
-```
-
-**A cloud model** (any provider that speaks the common OpenAI format works: OpenAI, DeepSeek, Gemini,
-Groq, OpenRouter, and more). Give it the model name, the provider's base URL, and your key:
-```bash
-# OpenAI
-heckle config model openai gpt-4o-mini https://api.openai.com/v1
-heckle config key openai <your-api-key>
-
-# DeepSeek
-heckle config model deepseek deepseek-chat
-heckle config key deepseek <your-api-key>
-
-# Google Gemini
-heckle config model gemini gemini-2.0-flash https://generativelanguage.googleapis.com/v1beta/openai
-heckle config key gemini <your-api-key>
-```
-
-Run `heckle config` any time to see what is set (your key is shown masked). A cloud model means your
-captured page context is sent to that provider; keep Ollama if you want everything to stay on your
-machine.
-
-## 3. Run your app with Heckle
-
-In your project, put `heckle dev --` in front of the command you normally use to start it:
+From your project's root, put `npx heckle-dev dev --` in front of the command you normally use:
 
 ```bash
-heckle dev -- npm run dev        # or: heckle dev -- pnpm dev, yarn dev, vite, next dev, ...
+npx heckle-dev dev -- npm run dev
 ```
+
+No Heckle clone, global installation, link, or project configuration is required. The package is
+named `heckle-dev`; a global installation exposes the shorter `heckle` command.
+
+On first run Heckle checks:
+
+- Node is version 24 or newer.
+- The daemon and UI ports are available.
+- Ollama is reachable and the configured model is present. In a terminal, it offers to pull a
+  missing model.
+- Which of Claude Code, Cursor, and Codex are on PATH.
+- Whether automatic agent delivery is available or the file inbox fallback will be used.
+
+Non-interactive runs never wait for a prompt. They fail with the exact setup command needed. After
+explicitly configuring drafting another way, `--skip-model-check` can bypass only the Ollama check.
 
 Open the link Heckle prints (something like `http://localhost:4318`). Your app looks the same, with a
 small **h** button in the corner.
 
-## 4. Use it
+## 2. Choose a different drafting model
+
+The default is local Ollama with `qwen3:14b`. To use a cloud model, configure it before `dev`:
+
+```bash
+npx heckle-dev config model deepseek deepseek-chat
+npx heckle-dev config key deepseek <your-api-key>
+```
+
+For any OpenAI-compatible provider, supply its model and base URL. Run `npx heckle-dev config` to see
+the effective settings; keys are masked. Cloud drafting sends captured context to that provider and
+turns local-only mode off. Ollama keeps capture and drafting on your machine.
+
+## 3. Use it
 
 1. Click the **h** button, or press **Cmd/Ctrl+Shift+.** to talk.
 2. Say or type what is wrong.
@@ -99,9 +86,9 @@ That is the whole loop: notice something, say it, approve, done.
 ## Handy commands
 
 ```bash
-heckle config              # show the current model, voice, and keys (keys masked)
-heckle config model ...    # change the model (see step 2)
-heckle config voice local  # voice input: local (macOS) or webspeech (Chrome)
-heckle dev -- <command>    # run your app with Heckle attached
-heckle help                # all commands
+npx heckle-dev config              # show the current model, voice, and keys (keys masked)
+npx heckle-dev config model ...    # change the model (see step 2)
+npx heckle-dev config voice local  # voice input: local (macOS) or webspeech (Chrome)
+npx heckle-dev dev -- <command>    # run your app with Heckle attached
+npx heckle-dev help                # all commands
 ```

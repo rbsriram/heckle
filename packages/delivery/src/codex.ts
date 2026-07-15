@@ -4,7 +4,7 @@
 // supply-your-own-id, and its ids must be scraped from `--json` output, so for an accumulating
 // session we use `exec resume` rather than minting an id. Facts verified against
 // developers.openai.com/codex (July 2026).
-import type { ContextBundle, DeliveryResult, Feedback } from "@heckle/shared";
+import type { ContextBundle, DeliveryResult, Feedback } from "../../shared/src/index.ts";
 import { buildFixPrompt, defaultSpawn, defaultWhich, runDetachedFix } from "./agent-dispatch.ts";
 import type { DeliveryAdapter, SpawnFn, WhichFn } from "./types.ts";
 

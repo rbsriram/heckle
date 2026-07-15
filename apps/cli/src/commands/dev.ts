@@ -1,12 +1,15 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import type { Server } from "node:http";
 import { fileURLToPath } from "node:url";
-import { startInjectingProxy } from "@heckle/daemon";
-import { type AgentKind, hasAgentContext, hasAnyAgentContext, installAgentContext } from "@heckle/delivery";
+import { loadConfig, startInjectingProxy } from "../../../../packages/daemon/src/index.ts";
+import { type AgentKind, hasAgentContext, hasAnyAgentContext, installAgentContext } from "../../../../packages/delivery/src/index.ts";
+import { isPortAvailable, runReadiness } from "../readiness.ts";
 
 // Resolve the daemon entry point relative to THIS file, so it works no matter the cwd
 // or how `heckle` was invoked (npm bin symlink, npx, or direct node).
-const DAEMON_ENTRY = fileURLToPath(new URL("../../../../packages/daemon/src/main.ts", import.meta.url));
+const DAEMON_ENTRY = fileURLToPath(
+  new URL(`../../../../packages/daemon/src/main.${import.meta.url.endsWith(".ts") ? "ts" : "js"}`, import.meta.url),
+);
 
 interface DevArgs {
   wrapped: string[];
@@ -14,6 +17,7 @@ interface DevArgs {
   appUrl?: string;
   uiPort: number;
   noInit: boolean;
+  skipModelCheck: boolean;
   agent?: AgentKind;
 }
 
@@ -23,10 +27,17 @@ function parseArgs(args: string[]): DevArgs {
   const dd = args.indexOf("--");
   const flags = dd === -1 ? [] : args.slice(0, dd);
   const wrapped = dd === -1 ? args : args.slice(dd + 1);
-  const out: DevArgs = { wrapped, noProxy: false, uiPort: Number(process.env.HECKLE_UI_PORT ?? 4318), noInit: false };
+  const out: DevArgs = {
+    wrapped,
+    noProxy: false,
+    uiPort: Number(process.env.HECKLE_UI_PORT ?? 4318),
+    noInit: false,
+    skipModelCheck: false,
+  };
   for (let i = 0; i < flags.length; i++) {
     if (flags[i] === "--no-proxy") out.noProxy = true;
     else if (flags[i] === "--no-init") out.noInit = true;
+    else if (flags[i] === "--skip-model-check") out.skipModelCheck = true;
     else if (flags[i] === "--app-url") out.appUrl = flags[++i];
     else if (flags[i] === "--ui-port") out.uiPort = Number(flags[++i]);
     else if (flags[i] === "--agent") {
@@ -53,10 +64,10 @@ function rel(p: string): string {
  * present. With no `--agent`, we only act when NO agent has been taught yet (true first run);
  * with an explicit `--agent`, we install that agent if it is missing.
  */
-function autoInit(opts: DevArgs): void {
+function autoInit(opts: DevArgs, configuredAgent?: AgentKind): void {
   if (opts.noInit) return;
   const explicit = opts.agent !== undefined;
-  const agent: AgentKind = opts.agent ?? "claude-code";
+  const agent: AgentKind = opts.agent ?? configuredAgent ?? "claude-code";
   const already = explicit ? hasAgentContext(process.cwd(), agent) : hasAnyAgentContext(process.cwd());
   if (already) return;
   const res = installAgentContext(process.cwd(), agent);
@@ -92,9 +103,24 @@ export async function runDev(args: string[]): Promise<void> {
     return;
   }
 
-  autoInit(opts);
-
   const port = Number(process.env.HECKLE_PORT ?? 4317);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error(`invalid HECKLE_PORT: ${process.env.HECKLE_PORT}`);
+  if (!Number.isInteger(opts.uiPort) || opts.uiPort < 1 || opts.uiPort > 65_535) throw new Error(`invalid --ui-port: ${opts.uiPort}`);
+  if (!opts.noProxy && opts.uiPort === port) throw new Error("HECKLE_PORT and --ui-port must be different.");
+  if (!(await isPortAvailable(port))) {
+    throw new Error(`daemon port ${port} is already in use. Set HECKLE_PORT to an available port.`);
+  }
+  if (!opts.noProxy && !(await isPortAvailable(opts.uiPort))) {
+    throw new Error(`UI port ${opts.uiPort} is already in use. Pass --ui-port <port> or --no-proxy.`);
+  }
+
+  const config = await loadConfig(process.cwd());
+  await runReadiness(config, { skipModelCheck: opts.skipModelCheck });
+  const configuredAgent = config.delivery.order.find(
+    (name): name is Exclude<AgentKind, "all"> => name === "claude-code" || name === "cursor" || name === "codex",
+  );
+  autoInit(opts, configuredAgent);
+
   const daemonUrl = `http://127.0.0.1:${port}`;
 
   // 1) Start the daemon as its own process.

@@ -1,6 +1,6 @@
 // Knot-lite: the issue tracker + semantic recall that produces the hero moment
 // ("you flagged this before, it's still open"). The moat.
-import type { HistoryAnnotation, Issue, IssueStatus } from "@heckle/shared";
+import type { HistoryAnnotation, Issue, IssueStatus } from "../../shared/src/index.ts";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { cosine, type Embedder } from "./embed.ts";

@@ -1,5 +1,5 @@
 // Assemble a ContextBundle snapshot from the live capture buffers. Pure, testable in Node.
-import type { ConsoleEntry, ContextBundle, NetworkEntry, PointedTarget } from "@heckle/shared";
+import type { ConsoleEntry, ContextBundle, NetworkEntry, PointedTarget } from "../../../shared/src/index.ts";
 import type { RingBuffer } from "./buffers.ts";
 
 export interface CaptureBuffers {

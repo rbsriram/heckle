@@ -1,6 +1,6 @@
 // Pure capture primitives: ring buffers + console/network patching.
 // No DOM access at import time, so this module is unit-testable directly in Node.
-import type { ConsoleEntry, ConsoleLevel, NetworkEntry } from "@heckle/shared";
+import type { ConsoleEntry, ConsoleLevel, NetworkEntry } from "../../../shared/src/index.ts";
 
 let counter = 0;
 function nextId(prefix: string): string {

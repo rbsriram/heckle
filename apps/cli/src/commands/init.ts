@@ -1,6 +1,6 @@
 // `heckle init`, teach your coding agent about Heckle: writes the inbox convention and a
 // Claude Code skill so "check Heckle" and the auto-dispatch work without explaining it.
-import { type AgentKind, installAgentContext } from "@heckle/delivery";
+import { type AgentKind, installAgentContext } from "../../../../packages/delivery/src/index.ts";
 
 export function runInit(argv: string[]): void {
   const i = argv.indexOf("--agent");

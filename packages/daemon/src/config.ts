@@ -1,4 +1,4 @@
-import type { HeckleConfig } from "@heckle/shared";
+import type { HeckleConfig } from "../../shared/src/index.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";

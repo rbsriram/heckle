@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": ".",
+    "outDir": "dist",
+    "allowJs": true,
+    "checkJs": false,
+    "declaration": false,
+    "rewriteRelativeImportExtensions": true
+  },
+  "include": [
+    "packages/*/src/**/*",
+    "apps/cli/src/**/*",
+    "apps/cli/bin/**/*"
+  ],
+  "exclude": [
+    "**/test/**"
+  ]
+}

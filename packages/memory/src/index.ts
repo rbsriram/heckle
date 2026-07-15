@@ -1,5 +1,5 @@
 // @heckle/memory, knot-lite: local issue tracking + semantic recall (the hero moment).
-import type { HeckleConfig } from "@heckle/shared";
+import type { HeckleConfig } from "../../shared/src/index.ts";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { openDb } from "./db.ts";

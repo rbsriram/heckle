@@ -1,6 +1,6 @@
 // Robustly pull a JSON object out of a model reply and validate it against the Feedback
 // draft schema. Handles <think> blocks, markdown fences, and surrounding prose.
-import { DraftSchema, type DraftInput } from "@heckle/shared/feedback";
+import { DraftSchema, type DraftInput } from "../../shared/src/feedback.ts";
 
 export function extractJson(raw: string): string {
   let s = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();

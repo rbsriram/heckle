@@ -1,5 +1,5 @@
 // `heckle metrics`, read the local instrumentation log (activation + retention).
-import { formatMetrics, openMetrics } from "@heckle/daemon";
+import { formatMetrics, openMetrics } from "../../../../packages/daemon/src/index.ts";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 

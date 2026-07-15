@@ -1,6 +1,7 @@
-import type { HeckleConfig } from "@heckle/shared";
-import type { ModelProvider } from "@heckle/providers";
-import type { Knot } from "@heckle/memory";
+import type { HeckleConfig } from "../../shared/src/index.ts";
+import { VERSION } from "../../shared/src/version.ts";
+import type { ModelProvider } from "../../providers/src/index.ts";
+import type { Knot } from "../../memory/src/index.ts";
 import type { Metrics } from "./metrics.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { createServer, type Server, type ServerResponse } from "node:http";
@@ -21,7 +22,6 @@ export interface DaemonHandle {
   close: () => Promise<void>;
 }
 
-const VERSION = "0.0.0";
 const WS_PATH = "/ws";
 
 // Widget assets, served on the fly (no build step): the classic loader, the browser
@@ -72,14 +72,15 @@ function serveWidgetAsset(pathname: string, res: ServerResponse): boolean {
       res.end(`console.error("[heckle] bad asset path");`);
       return true;
     }
-    const file = join(BROWSER_DIR, rel);
+    let file = join(BROWSER_DIR, rel);
+    if (!existsSync(file) && rel.endsWith(".js")) file = join(BROWSER_DIR, `${rel.slice(0, -3)}.ts`);
     if (!file.startsWith(BROWSER_DIR + sep) || !existsSync(file)) {
       res.writeHead(404, JS_HEADERS);
       res.end(`console.error("[heckle] module not found: ${rel}");`);
       return true;
     }
     const src = readFileSync(file, "utf8");
-    const js = rel.endsWith(".ts") ? stripTypeScriptTypes(src, { mode: "strip" }) : src;
+    const js = file.endsWith(".ts") ? stripTypeScriptTypes(src, { mode: "strip" }) : src;
     res.writeHead(200, JS_HEADERS);
     res.end(js);
     return true;

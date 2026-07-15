@@ -1,8 +1,8 @@
 // Map the widget's high-level delivery choice (agent + session + autonomy) onto the detailed
 // per-agent delivery config the DeliveryChain consumes, and back again so the gear can show the
 // daemon's current state. Keeps all the "which knob means what per agent" logic in one place.
-import { isDispatchAdapter } from "@heckle/delivery";
-import type { DeliveryAdapterName, DeliverySelection, HeckleConfig } from "@heckle/shared";
+import { isDispatchAdapter } from "../../delivery/src/index.ts";
+import type { DeliveryAdapterName, DeliverySelection, HeckleConfig } from "../../shared/src/index.ts";
 
 // Apply a selection over the boot config, returning a config whose delivery routes accordingly.
 // The gear only chooses which agent leads and the session/autonomy knobs it exposes; everything

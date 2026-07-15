@@ -1,6 +1,6 @@
 // Delivery adapter contract. Each adapter implements isAvailable + deliver; the chain
 // owns priority order and fallback. Adding an agent = writing one adapter.
-import type { ContextBundle, DeliveryAdapterName, DeliveryResult, Feedback } from "@heckle/shared";
+import type { ContextBundle, DeliveryAdapterName, DeliveryResult, Feedback } from "../../shared/src/index.ts";
 
 export interface DeliveryAdapter {
   readonly name: DeliveryAdapterName;

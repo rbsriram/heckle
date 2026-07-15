@@ -35,50 +35,43 @@ should just be watching. So now I talk to my app and my agent fixes it.
 
 ## what it needs
 
-Runs on macOS, Windows, and Linux, it is plain Node so the core is cross-platform. Built and tested
-on a Mac; Linux should be fine; Windows should run too. Typing works everywhere; on-device voice is
-Mac-only for now, type on the others.
+Runs on macOS, Windows, and Linux. Typing works everywhere; on-device voice is macOS only for now.
 
 - **Node 24 or newer.** Get it from [nodejs.org](https://nodejs.org), or `brew install node` (mac),
-  `winget install OpenJS.NodeJS` (windows), `nvm install 24` (linux). Check with `node --version`.
-- **A model to think with.** Either local and free with [Ollama](https://ollama.com)
-  (`ollama pull qwen3:14b`, wants ~16GB RAM; use `llama3.1:8b` on a smaller machine), or a cloud key
-  you already have (OpenAI, DeepSeek, Gemini, Groq, anything OpenAI-compatible).
+  `winget install OpenJS.NodeJS` (windows), `nvm install 24` (linux).
+- **A drafting model.** The local-first default is [Ollama](https://ollama.com) with `qwen3:14b`.
+  Heckle checks that Ollama and the model are ready, and offers to pull a missing model. You can
+  configure an OpenAI-compatible cloud provider instead.
 - **A coding agent, optional.** [Claude Code](https://code.claude.com/docs),
   [Cursor](https://cursor.com/install), or Codex (`npm install -g @openai/codex`). Without one,
-  Heckle writes the fix to a file and you hand it to whatever you use.
-
-## install
-
-```bash
-git clone <this-repo-url>
-cd heckle
-npm install
-npm link
-```
-
-That gives you a `heckle` command in any project. (If `npm link` gives you trouble, the
-[getting started guide](docs/getting-started.md) has a no-link fallback.)
-
-## pick your model
-
-```bash
-heckle config model ollama qwen3:14b        # local and free
-# or a cloud model:
-heckle config model deepseek deepseek-chat
-heckle config key deepseek <your-api-key>
-```
-
-Or set it from the gear inside the panel. `heckle config` shows what is set (your key stays hidden).
+  every approved task still lands in `.heckle/inbox.md`.
 
 ## run it
 
+From the app you want to test:
+
 ```bash
-heckle dev -- npm run dev      # or pnpm dev, vite, next dev, whatever you use
+npx heckle-dev dev -- npm run dev
 ```
 
-Open the link it prints (like `http://localhost:4318`). Your app looks the same, with a small **h**
-button in the corner.
+No clone, global install, or project configuration is required. The npm package is `heckle-dev`;
+its installed command is `heckle` if you later install it globally.
+
+On first run Heckle checks Node, Ollama and the configured model, available coding agents, and its
+local ports. A missing Ollama model can be pulled from the prompt. For a cloud model, configure it
+once with:
+
+```bash
+npx heckle-dev config model deepseek deepseek-chat
+npx heckle-dev config key deepseek <your-api-key>
+```
+
+Cloud drafting sends captured context to that provider and turns local-only mode off. Ollama keeps
+capture and drafting on your machine. If no agent is available, delivery falls back to the file
+inbox. Nothing reaches any agent until you approve the drafted task.
+
+Open the link Heckle prints (like `http://localhost:4318`). Your app looks the same, with a small
+**h** button in the corner.
 
 ## how you use it
 
@@ -97,6 +90,18 @@ up from a file, so it works with whatever you build with.
 ## more
 
 Step by step in [docs/getting-started.md](docs/getting-started.md).
+
+For contributors working from source:
+
+```bash
+git clone <repository-url>
+cd heckle
+npm install
+npm run build
+npm link
+```
+
+End users should use `npx heckle-dev`; the source install is only for developing Heckle itself.
 
 ## credits
 

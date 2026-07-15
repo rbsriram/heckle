@@ -2,7 +2,7 @@
 // `-p --force` (plain `-p` only PROPOSES edits; --force lets them land). Cursor has no
 // supply-your-own-id, so for an accumulating session we mint one with `create-chat`, persist
 // it, and `--resume` it thereafter. Facts verified against cursor.com/docs/cli (July 2026).
-import type { ContextBundle, DeliveryResult, Feedback } from "@heckle/shared";
+import type { ContextBundle, DeliveryResult, Feedback } from "../../shared/src/index.ts";
 import { buildFixPrompt, defaultSpawn, defaultWhich, readSessionId, runDetachedFix, writeSessionId } from "./agent-dispatch.ts";
 import type { DeliveryAdapter, SpawnFn, WhichFn } from "./types.ts";
 

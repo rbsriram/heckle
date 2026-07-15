@@ -2,7 +2,7 @@
 // Each agent's fix runs the same way: one owned, accumulating session per project so a fix
 // sees the earlier fixes, spawned detached, logged to .heckle/dispatch-<id>.log. Only the
 // binary, the arg shape, and how a session id is obtained differ per agent.
-import type { ContextBundle, DeliveryAdapterName, DeliveryResult, Feedback } from "@heckle/shared";
+import type { ContextBundle, DeliveryAdapterName, DeliveryResult, Feedback } from "../../shared/src/index.ts";
 import { execFileSync, spawn as nodeSpawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { accessSync, constants, createWriteStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";

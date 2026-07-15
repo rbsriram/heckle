@@ -1,7 +1,7 @@
 // `heckle config`: configure the drafting model, voice, and API keys from the command line,
 // without editing heckle.config.ts. Writes the user layer at ~/.heckle/config.json, which the
 // daemon merges on top of everything (see @heckle/daemon loadConfig).
-import { DRAFTING_PRESETS, loadConfig, loadUserConfig, providerKeyEnv, saveUserConfig, userConfigPath, type UserConfig } from "@heckle/daemon";
+import { DRAFTING_PRESETS, loadConfig, loadUserConfig, providerKeyEnv, saveUserConfig, userConfigPath, type UserConfig } from "../../../../packages/daemon/src/index.ts";
 
 function coerce(v: string): string | number | boolean {
   if (v === "true") return true;
