@@ -234,9 +234,9 @@ Everything, including instant edits and ambient signals, lands in memory and pro
 
 **Current state is the biggest single lever.** git clone + npm link is a 90 percent drop-off funnel; the repo has 0 stars partly because of it.
 
-1. Publish to npm as `heckle` (or `@heckle/cli` if taken). Entire install story becomes:
+1. Publish to npm as `heckle-dev` (`heckle` and `@heckle/cli` are occupied; `heckle-dev` is claimed). Keep the installed binary name `heckle`. The zero-install story becomes:
    ```
-   npx heckle dev -- npm run dev
+   npx heckle-dev dev -- npm run dev
    ```
    No clone, no link, no config for the default path. Ship this before anything else in this spec.
 2. First-run wizard: detect Ollama, offer model pull or paste-a-key, detect Claude Code/Cursor/Codex on PATH, offer MCP registration. Zero to first heckle under 3 minutes.
@@ -268,7 +268,7 @@ Everything, including instant edits and ambient signals, lands in memory and pro
 
 | Phase | Scope | Duration | Exit criteria |
 |---|---|---|---|
-| P0 | npm publish, `npx heckle` flow, first-run wizard | 1 week | Fresh machine to first shipped heckle in under 3 minutes, no clone |
+| P0 | npm publish, `npx heckle-dev` flow, first-run wizard | 1 week | Fresh machine to first shipped heckle in under 3 minutes, no clone |
 | P1 | Repro capture, replay engine, determinism gate (F1) | 3 weeks | 80% of heckles on the sample app yield a repro that passes the 3-run gate |
 | P1.5 | Minimum ledger migration (F6) | 1 week | Versioned SQLite schema has Issue, Repro, Fix, Session, Element, Route, and Signal primitives; bitemporal fields, authority, owner, and source exist before verification writes outcomes |
 | P2 | Verification engine, `heckle test`, `--changed` (F2) | 2 weeks | Fixed status driven by replay; regression suite runnable in CI with one line |

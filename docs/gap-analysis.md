@@ -333,7 +333,7 @@ However, it should be treated as an F5 prototype, not a finished feature. The cu
 
 ### Partial
 
-- The command shape needed by `npx heckle dev -- npm run dev` already exists, but the package is not publishable because the root and workspace package manifests are private at version `0.0.0`.
+- The command shape needed by `npx heckle-dev dev -- npm run dev` already exists, and `heckle-dev@0.0.0` now reserves the package name. The repository artifact is not yet publishable because the root and workspace package manifests are private at version `0.0.0`.
 - First-run behavior teaches an agent automatically, but it is not the required wizard and defaults to Claude Code unless directed.
 - The local daemon serves a script at `/heckle.js`, and the proxy can inject it into a local app. This is not remote capture-only mode or a CDN asset.
 - A Claude skill exists in the repository and can be installed into projects. It is not a marketplace package and contains no MCP workflow.
