@@ -17,6 +17,7 @@
   "exports": {
     "./vite-plugin": "./dist/packages/capture/src/vite-plugin.js",
     "./next-plugin": "./dist/packages/capture/src/next-plugin.js",
+    "./capture-only": "./dist/packages/capture/src/capture-only.js",
     "./source-loader": "./dist/packages/capture/src/source-loader.cjs"
   },
   "files": [

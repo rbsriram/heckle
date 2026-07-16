@@ -22,10 +22,10 @@ test("migration creates every minimum ledger primitive and preserves an old issu
 
   const db = openDb(path);
   const tables = (db.prepare(`SELECT name FROM sqlite_master WHERE type='table'`).all() as Array<{ name: string }>).map((row) => row.name);
-  for (const table of ["issues", "issue_versions", "repros", "fixes", "sessions", "elements", "routes", "signals", "signal_versions", "ledger_events"]) {
+  for (const table of ["team_members", "issues", "issue_versions", "repros", "fixes", "sessions", "elements", "routes", "signals", "signal_versions", "ledger_events"]) {
     assert.ok(tables.includes(table), `created ${table}`);
   }
-  assert.equal((db.prepare(`PRAGMA user_version`).get() as { user_version: number }).user_version, 4);
+  assert.equal((db.prepare(`PRAGMA user_version`).get() as { user_version: number }).user_version, 5);
   assert.equal((db.prepare(`SELECT owner,source FROM issues WHERE id='iss_old'`).get() as { owner: string; source: string }).owner, "local");
   assert.equal((db.prepare(`SELECT count(*) AS n FROM issue_versions WHERE issue_id='iss_old'`).get() as { n: number }).n, 1);
   db.close();

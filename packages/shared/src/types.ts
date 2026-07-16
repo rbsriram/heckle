@@ -217,6 +217,7 @@ export interface ContextBundle {
 
 // ---------- Memory (knot-lite) ----------
 
+export type TeamRole = "reporter" | "shipper";
 export type IssueStatus = "open" | "fixed" | "recurring";
 export type Authority = "verification" | "human" | "deterministic" | "agent" | "heuristic";
 
@@ -294,6 +295,8 @@ export interface CaptureRecord {
   reproId?: string;
   progress?: string; // one live line while the agent fix runs ("Editing Hero.tsx"), cleared when it ends
   dispatchedAt?: number; // when the fix was handed to the agent, for the widget's elapsed timer
+  owner?: string;
+  source?: string;
 }
 
 // ---------- Wire protocol (widget <-> daemon over WebSocket) ----------

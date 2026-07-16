@@ -310,4 +310,4 @@ P0 ships this week regardless of everything else. The reusable P5 prototype is p
 
 1. Repro storage format versioning: how aggressively to migrate old repros when the schema changes. Proposal: version field, replay engine supports N-1.
 2. Whether `heckle test` should also run as a Claude Code hook (PostToolUse on Edit/Write) by default or only via the skill instruction. Proposal: skill instruction first, hook opt-in.
-3. Relay architecture for capture-only mode: hosted sync endpoint (introduces a server, and a business) vs. tunnel-based direct sync. Decide at P6, not before.
+3. Capture-only transport decision: v1 uses the fully-local file export/import path. A hosted encrypted relay remains optional future work and must never become the local-first default.

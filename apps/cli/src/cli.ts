@@ -1,6 +1,8 @@
 import { runConfig } from "./commands/config.ts";
 import { runDev } from "./commands/dev.ts";
 import { runInit } from "./commands/init.ts";
+import { runImportCapture } from "./commands/import-capture.ts";
+import { runExportLedger } from "./commands/export-ledger.ts";
 import { runMetrics } from "./commands/metrics.ts";
 import { runMcp } from "./commands/mcp.ts";
 import { runReplay } from "./commands/replay.ts";
@@ -22,6 +24,8 @@ Usage:
   heckle test [--changed ...] Run promoted regressions, optionally filtered by changed files
   heckle mcp                 Start the local Heckle MCP server over stdio
   heckle undo                Undo the latest deterministic instant edit
+  heckle import <file>       Import a capture-only export into the local queue
+  heckle export [file]       Export the local team ledger as versioned JSON
   heckle metrics              Show local activation + retention metrics
   heckle version              Print version
   heckle help                 Show this help
@@ -54,6 +58,12 @@ export async function run(argv: string[]): Promise<void> {
       return;
     case "undo":
       runUndo(rest);
+      return;
+    case "import":
+      await runImportCapture(rest);
+      return;
+    case "export":
+      runExportLedger(rest);
       return;
     case "metrics":
       runMetrics();

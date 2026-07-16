@@ -1,4 +1,4 @@
-import type { Authority, ReproArtifact } from "../../shared/src/index.ts";
+import type { Authority, ReproArtifact, TeamRole } from "../../shared/src/index.ts";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 
@@ -36,6 +36,17 @@ export class Ledger {
        (entity_type,entity_id,action,payload,observed_at,valid_from,superseded_at,authority,owner,source)
        VALUES (?,?,?,?,?,?,?,?,?,?)`,
     ).run(entityType, entityId, action, JSON.stringify(payload), now, now, null, authority, owner, source);
+  }
+
+  recordTeamMember(id: string, role: TeamRole, displayName: string): void {
+    const now = Date.now();
+    this.db.prepare(
+      `INSERT INTO team_members
+       (id,role,display_name,created_at,observed_at,valid_from,superseded_at,authority,owner,source)
+       VALUES (?,?,?,?,?,?,?,?,?,?)
+       ON CONFLICT(id) DO UPDATE SET role=excluded.role,display_name=excluded.display_name,observed_at=excluded.observed_at`,
+    ).run(id, role, displayName, now, now, now, null, "human", id, "team");
+    this.event("team_member", id, "recorded", { role, displayName }, "human", id, "team");
   }
 
   recordIssue(input: {

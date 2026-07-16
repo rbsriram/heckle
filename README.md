@@ -104,6 +104,26 @@ until the element-to-source map is populated.
 Replay runs three times by default. Three passing outcomes pass the determinism gate; any failure
 quarantines the repro. Install Chromium once if prompted with `npx playwright@1.61.1 install chromium`.
 
+## capture-only staging mode
+
+A reporter who has no CLI or coding agent can file a task from a staging URL. Host the shipped
+`dist/packages/capture/src/capture-only.js` as `h.js`, then add:
+
+```html
+<script src="https://your-cdn.example/h.js" data-project="your-project" data-reporter="reporter-id"></script>
+```
+
+The capture-only widget has no agent or codemod access. Export creates a local
+`heckle-capture@1` JSON file containing the task, route, action steps, and redacted error metadata,
+never source, DOM, cookies, or network bodies. The shipper imports it into their local queue:
+
+```bash
+npx heckle-dev import heckle-123.json
+```
+
+Import only queues the report and never starts an agent. Imported issues preserve `owner` and
+`source=capture-only`; the shipper still reviews, approves, and verifies any resulting fix.
+
 ## instant literal edits
 
 Point at a React element and ask for an obvious copy, color, size, weight, radius, or visibility
