@@ -100,6 +100,19 @@ npx heckle-dev test --changed
 The second command reads `git diff --name-only` unless changed files are listed explicitly. It uses
 source mappings when available and includes unmapped repros conservatively.
 
+## Connect your agent over MCP
+
+Claude Code registration is one command from the project directory:
+
+```bash
+claude mcp add heckle -- npx heckle-dev mcp
+```
+
+For Cursor and Codex, configure an stdio server named `heckle` with command `npx` and arguments
+`["heckle-dev", "mcp"]`. The server exposes issue listing, full task evidence, memory search,
+regression selection and execution, individual replay, ready-for-verification, and fix history tools.
+It reads only the local project's `.heckle/` data.
+
 ## Which coding agent fixes it?
 
 - **Claude Code, Cursor, or Codex**: fully automatic. Approve a task and it runs, with live progress
@@ -116,5 +129,6 @@ npx heckle-dev config voice local  # voice input: local (macOS) or webspeech (Ch
 npx heckle-dev dev -- <command>    # run your app with Heckle attached
 npx heckle-dev replay <repro-id>   # replay an approved complaint three times
 npx heckle-dev test [--changed]    # run promoted regression repros
+npx heckle-dev mcp                 # serve local QA tools over stdio
 npx heckle-dev help                # all commands
 ```

@@ -24,6 +24,7 @@
     "dist/packages/daemon/src",
     "dist/packages/delivery/src",
     "dist/packages/memory/src",
+    "dist/packages/mcp/src",
     "dist/packages/providers/src",
     "dist/packages/replay/src",
     "dist/packages/shared/src",

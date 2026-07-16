@@ -38,6 +38,49 @@ export class Ledger {
     ).run(entityType, entityId, action, JSON.stringify(payload), now, now, null, authority, owner, source);
   }
 
+  recordIssue(input: {
+    id: string;
+    summary: string;
+    severity: "blocker" | "bug" | "polish";
+    flow?: string;
+    contextRef?: string;
+    owner?: string;
+    source?: string;
+  }): void {
+    const existing = this.db.prepare(`SELECT id FROM issues WHERE id=?`).get(input.id) as { id: string } | undefined;
+    if (existing) return;
+    const now = Date.now();
+    this.db.prepare(
+      `INSERT INTO issues
+       (id,status,created_at,updated_at,flow,summary,severity,context_ref,flagged_count,embedding,observed_at,valid_from,superseded_at,authority,owner,source)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).run(
+      input.id,
+      "open",
+      now,
+      now,
+      input.flow ?? null,
+      input.summary,
+      input.severity,
+      input.contextRef ?? null,
+      1,
+      "[]",
+      now,
+      now,
+      null,
+      "human",
+      input.owner ?? "local",
+      input.source ?? "local",
+    );
+    this.db.prepare(
+      `INSERT INTO issue_versions
+       (issue_id,status,observed_at,valid_from,superseded_at,authority,owner,source,flow,summary,severity,context_ref,flagged_count)
+       SELECT id,status,observed_at,valid_from,NULL,authority,owner,source,flow,summary,severity,context_ref,flagged_count
+       FROM issues WHERE id=?`,
+    ).run(input.id);
+    this.event("issue", input.id, "recorded", input, "human", input.owner, input.source);
+  }
+
   recordRepro(artifact: ReproArtifact, artifactPath: string): void {
     const now = Date.now();
     this.db.prepare(
@@ -199,8 +242,8 @@ export class Ledger {
         ).run(fixed ? "fixed" : "open", now, now, now, artifact.issue_id);
         this.db.prepare(
           `INSERT INTO issue_versions
-           (issue_id,status,observed_at,valid_from,superseded_at,authority,owner,source,flow,summary,context_ref,flagged_count)
-           SELECT id,status,observed_at,valid_from,NULL,authority,owner,source,flow,summary,context_ref,flagged_count
+           (issue_id,status,observed_at,valid_from,superseded_at,authority,owner,source,flow,summary,severity,context_ref,flagged_count)
+           SELECT id,status,observed_at,valid_from,NULL,authority,owner,source,flow,summary,severity,context_ref,flagged_count
            FROM issues WHERE id=?`,
         ).run(artifact.issue_id);
       }

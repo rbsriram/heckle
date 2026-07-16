@@ -104,6 +104,20 @@ until the element-to-source map is populated.
 Replay runs three times by default. Three passing outcomes pass the determinism gate; any failure
 quarantines the repro. Install Chromium once if prompted with `npx playwright@1.61.1 install chromium`.
 
+## agent access over MCP
+
+Heckle exposes the local ledger and replay engine as seven MCP tools over stdio. Register it once
+from the project directory:
+
+```bash
+claude mcp add heckle -- npx heckle-dev mcp
+```
+
+For Cursor or Codex, add an stdio MCP server named `heckle` whose command is `npx` and arguments are
+`["heckle-dev", "mcp"]`. Agents can list open issues, pull complete task evidence, search memory,
+select and run regressions, run one repro, mark an issue ready for verification, and inspect fix
+history. All tool data stays in the project's local `.heckle/` directory.
+
 ## which agent fixes it
 
 Claude Code, Cursor, and Codex fix automatically, pick one in the gear. Anything else picks the task

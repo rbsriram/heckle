@@ -199,6 +199,7 @@ export interface Issue {
   updatedAt: number;
   flow?: string;
   summary: string;
+  severity?: Severity;
   contextRef?: string;
   observedAt?: number;
   validFrom?: number;

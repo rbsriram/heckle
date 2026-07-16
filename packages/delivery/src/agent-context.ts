@@ -20,8 +20,10 @@ Heckle" or process the inbox (Heckle also dispatches this automatically after ap
 1. Read \`.heckle/inbox.md\`. Each item has an id, an intent (the instruction to act on), a
    severity (blocker/bug/polish), repro steps, and attached console/network context.
 2. For each open item, treat the repro steps and the attached console errors / failed
-   network calls as ground truth. Make the smallest correct fix, run the project's tests if
-   present, then mark the item done in \`.heckle/inbox.md\` (keep its id).
+   network calls as ground truth. Make the smallest correct fix and run the project's tests.
+   If Heckle MCP is available, call \`heckle_check_regressions\` with changed files and
+   \`run: true\`, then call \`heckle_mark_ready\`. A code diff alone is not Fixed. Mark the
+   item done in \`.heckle/inbox.md\` only after verification (keep its id).
 3. If an item is vague or you cannot reproduce it, do not guess. Note what you found under
    the item and leave it open.
 
@@ -51,9 +53,17 @@ The user says "check Heckle", "go heckle", "process the inbox", or points at
      failed network calls. Those are the evidence; trust them over guessing.
    - Make the smallest correct fix. Do not add unrequested work.
    - Run the project's tests or build if present, and confirm the fix matches the intent.
+   - If the Heckle MCP server is available, call \`heckle_check_regressions\` with the changed
+     files and \`run: true\`, then call \`heckle_mark_ready\` for the issue. Do not claim Fixed
+     from a code diff alone.
    - Mark the item done in \`.heckle/inbox.md\`, preserving its id.
 3. If an item is vague or you cannot reproduce it, do not guess. Note what you found under
    the item and leave it open for the person to clarify.
+
+## Definition of done
+- \`heckle_check_regressions\` has been called with every changed file and \`run: true\`.
+- \`heckle_mark_ready\` reports Fixed for the issue. A code diff or agent exit code is not proof.
+- The matching inbox item is marked done without changing any other item.
 
 ## Rules
 - The attached console/network refs are ground truth for what broke. Start there.

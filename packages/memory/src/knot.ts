@@ -18,6 +18,7 @@ interface Row {
   updated_at: number;
   flow: string | null;
   summary: string;
+  severity: string;
   context_ref: string | null;
   flagged_count: number;
   embedding: string;
@@ -37,6 +38,7 @@ function rowToIssue(r: Row): Issue {
     updatedAt: r.updated_at,
     flow: r.flow ?? undefined,
     summary: r.summary,
+    severity: r.severity as Issue["severity"],
     contextRef: r.context_ref ?? undefined,
     observedAt: r.observed_at,
     validFrom: r.valid_from,
@@ -59,8 +61,8 @@ export class Knot {
   private appendVersion(id: string, validFrom: number): void {
     this.db.prepare(
       `INSERT INTO issue_versions
-       (issue_id,status,observed_at,valid_from,superseded_at,authority,owner,source,flow,summary,context_ref,flagged_count)
-       SELECT id,status,observed_at,?,NULL,authority,owner,source,flow,summary,context_ref,flagged_count
+       (issue_id,status,observed_at,valid_from,superseded_at,authority,owner,source,flow,summary,severity,context_ref,flagged_count)
+       SELECT id,status,observed_at,?,NULL,authority,owner,source,flow,summary,severity,context_ref,flagged_count
        FROM issues WHERE id = ?`,
     ).run(validFrom, id);
     const row = this.db.prepare(`SELECT status,authority,owner,source,flagged_count FROM issues WHERE id = ?`).get(id) as
@@ -100,15 +102,15 @@ export class Knot {
     }
   }
 
-  async addIssue(input: { summary: string; flow?: string; contextRef?: string }): Promise<Issue> {
+  async addIssue(input: { summary: string; flow?: string; severity?: Issue["severity"]; contextRef?: string }): Promise<Issue> {
     const emb = await this.embedder.embed(input.summary);
     const now = Date.now();
     const id = `iss_${randomUUID()}`;
     this.db
       .prepare(
         `INSERT INTO issues
-         (id,status,created_at,updated_at,flow,summary,context_ref,flagged_count,embedding,observed_at,valid_from,superseded_at,authority,owner,source)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         (id,status,created_at,updated_at,flow,summary,severity,context_ref,flagged_count,embedding,observed_at,valid_from,superseded_at,authority,owner,source)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       )
       .run(
         id,
@@ -117,6 +119,7 @@ export class Knot {
         now,
         input.flow ?? null,
         input.summary,
+        input.severity ?? "bug",
         input.contextRef ?? null,
         1,
         JSON.stringify(Array.from(emb)),
@@ -135,6 +138,7 @@ export class Knot {
       updatedAt: now,
       flow: input.flow,
       summary: input.summary,
+      severity: input.severity ?? "bug",
       contextRef: input.contextRef,
       observedAt: now,
       validFrom: now,

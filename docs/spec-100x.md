@@ -166,7 +166,7 @@ Everything, including instant edits and ambient signals, lands in memory and pro
 | `heckle_mark_ready` | issue_id | triggers verification (F2) |
 | `heckle_get_fix_history` | element or route | past fixes touching this surface, with outcomes |
 
-**Transport.** stdio for Claude Code/Cursor/Codex local; the `heckle dev` process hosts it. Registration: `claude mcp add heckle -- heckle mcp` documented in README, plus a `.claude/skills/heckle` skill (already present in repo) updated to instruct the agent to call `heckle_check_regressions` before declaring any task done.
+**Transport.** stdio for Claude Code/Cursor/Codex local; the installed package hosts it through `heckle mcp` alongside `heckle dev`. Registration: `claude mcp add heckle -- npx heckle-dev mcp` documented in README, plus a `.claude/skills/heckle` skill (already present in repo) updated to instruct the agent to call `heckle_check_regressions` before declaring any task done.
 
 **Distribution side effect.** List in the major MCP directories (same playbook already built for Zovery: official registry, Smithery, PulseMCP, mcp.so).
 

@@ -445,6 +445,7 @@ export class Orchestrator {
             const created = await this.memory.addIssue({
               summary: draft.intent,
               flow: draft.target.flow,
+              severity: draft.severity,
               contextRef: feedback.id,
             });
             issueId = created.id;
@@ -513,6 +514,13 @@ export class Orchestrator {
         const gate = await this.captureGate.gate(artifact, { runs: 3 });
         if (!gate.stable) console.warn(`[heckle] repro ${artifact.id} quarantined after capture gate`);
       }
+      this.ledger?.recordIssue({
+        id: artifact.issue_id,
+        summary: feedback.intent,
+        severity: feedback.severity,
+        flow: feedback.target.flow,
+        contextRef: feedback.id,
+      });
       this.ledger?.recordRepro(artifact, artifactPath);
       this.ledger?.recordRoute(artifact.route);
       feedback.reproId = artifact.id;

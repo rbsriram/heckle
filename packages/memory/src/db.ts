@@ -20,6 +20,7 @@ export function openDb(path: string): DatabaseSync {
       updated_at INTEGER NOT NULL,
       flow TEXT,
       summary TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'bug',
       context_ref TEXT,                -- the feedback id that created/last touched this
       flagged_count INTEGER NOT NULL DEFAULT 1,
       embedding TEXT NOT NULL          -- JSON array of floats (nomic-embed-text)
@@ -31,6 +32,7 @@ export function openDb(path: string): DatabaseSync {
   addColumn(db, "issues", "authority", "TEXT NOT NULL DEFAULT 'human'");
   addColumn(db, "issues", "owner", "TEXT NOT NULL DEFAULT 'local'");
   addColumn(db, "issues", "source", "TEXT NOT NULL DEFAULT 'local'");
+  addColumn(db, "issues", "severity", "TEXT NOT NULL DEFAULT 'bug'");
   db.exec(`
     CREATE TABLE IF NOT EXISTS ledger_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,6 +60,7 @@ export function openDb(path: string): DatabaseSync {
       source TEXT NOT NULL,
       flow TEXT,
       summary TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'bug',
       context_ref TEXT,
       flagged_count INTEGER NOT NULL,
       FOREIGN KEY(issue_id) REFERENCES issues(id)
@@ -137,12 +140,13 @@ export function openDb(path: string): DatabaseSync {
       source TEXT NOT NULL DEFAULT 'local'
     );
   `);
+  addColumn(db, "issue_versions", "severity", "TEXT NOT NULL DEFAULT 'bug'");
   db.prepare(`UPDATE issues SET observed_at = CASE WHEN observed_at = 0 THEN created_at ELSE observed_at END,
     valid_from = CASE WHEN valid_from = 0 THEN created_at ELSE valid_from END`).run();
   db.prepare(`INSERT INTO issue_versions
-    (issue_id,status,observed_at,valid_from,superseded_at,authority,owner,source,flow,summary,context_ref,flagged_count)
-    SELECT id,status,observed_at,valid_from,NULL,authority,owner,source,flow,summary,context_ref,flagged_count
+    (issue_id,status,observed_at,valid_from,superseded_at,authority,owner,source,flow,summary,severity,context_ref,flagged_count)
+    SELECT id,status,observed_at,valid_from,NULL,authority,owner,source,flow,summary,severity,context_ref,flagged_count
     FROM issues WHERE NOT EXISTS (SELECT 1 FROM issue_versions v WHERE v.issue_id = issues.id)`).run();
-  db.exec(`PRAGMA user_version = 2;`);
+  db.exec(`PRAGMA user_version = 3;`);
   return db;
 }
