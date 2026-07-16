@@ -16,7 +16,7 @@ import {
   removeTaskContextReceipt,
   writeTaskContextReceipt,
 } from "../../delivery/src/index.ts";
-import { createMemory, historyFor, type Knot, type RelatedIssue } from "../../memory/src/index.ts";
+import { createLedger, createMemory, historyFor, type Knot, type Ledger, type RelatedIssue } from "../../memory/src/index.ts";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -53,6 +53,7 @@ export interface OrchestratorOptions {
   memory?: Knot | null;
   // Explicit metrics override (use `null` to disable the event log in tests).
   metrics?: Metrics | null;
+  ledger?: Ledger | null;
 }
 
 export class Orchestrator {
@@ -71,6 +72,8 @@ export class Orchestrator {
   private selection: DeliverySelection;
   private readonly memory: Knot | null;
   private readonly metrics: Metrics | null;
+  private readonly ledger: Ledger | null;
+  private readonly ledgerSessionId?: string;
   private readonly captures: CaptureLog;
   // feedbackId -> captureId, kept past delivery so a completed fix can update its history record.
   private readonly captureByFeedback = new Map<string, string>();
@@ -83,6 +86,16 @@ export class Orchestrator {
     this.projectRoot = projectRoot;
     this.heckleDir = resolve(projectRoot, ".heckle");
     this.captures = createCaptureLog(projectRoot);
+    if ("ledger" in opts) {
+      this.ledger = opts.ledger ?? null;
+    } else {
+      try {
+        this.ledger = createLedger(projectRoot);
+      } catch {
+        this.ledger = null;
+      }
+    }
+    this.ledgerSessionId = this.ledger?.startSession();
 
     if ("metrics" in opts) {
       this.metrics = opts.metrics ?? null;
@@ -107,14 +120,23 @@ export class Orchestrator {
         // Record the outcome in the capture history and push status to the widget, either way.
         // ok = the fix LANDED (files changed), not merely that the process exited 0.
         const captureId = this.captureByFeedback.get(feedbackId);
+        const capture = captureId ? this.captures.list().find((item) => item.id === captureId) : undefined;
         if (captureId) this.pushCapture(this.captures.setOutcome(captureId, ok ? "fixed" : "failed", { progress: undefined }));
+        const issueId = this.issueByFeedback.get(feedbackId);
+        if (issueId) {
+          this.ledger?.recordFix({
+            issueId,
+            reproId: capture?.reproId,
+            outcome: ok ? "landed" : "failed",
+            authority: "agent",
+          });
+        }
         this.captureByFeedback.delete(feedbackId);
         this.emit({ type: "fixStatus", feedbackId, ok });
         console.log(`[heckle] fix ${ok ? "landed" : "FAILED"} for ${feedbackId}`);
         if (!ok) return;
         this.metrics?.record("fix_landed", { feedbackId });
         // The agent reported success -> close the memory lifecycle (open -> fixed).
-        const issueId = this.issueByFeedback.get(feedbackId);
         if (issueId) {
           this.memory?.markFixed(issueId);
           this.issueByFeedback.delete(feedbackId);
@@ -153,6 +175,11 @@ export class Orchestrator {
   /** Pending drafts awaiting approval (read by tests; delivered in M3). */
   getPending(id: string): PendingFeedback | undefined {
     return this.pending.get(id);
+  }
+
+  close(): void {
+    if (this.ledgerSessionId) this.ledger?.endSession(this.ledgerSessionId);
+    this.ledger?.close();
   }
 
   /** Fire-and-forget: warm the local model so the first heckle drafts fast. */
@@ -426,7 +453,9 @@ export class Orchestrator {
         pending.issueId ?? `iss_${feedback.id}`,
         pending.transcript ?? feedback.intent,
       );
-      new ReproStore(this.projectRoot).save(artifact);
+      const artifactPath = new ReproStore(this.projectRoot).save(artifact);
+      this.ledger?.recordRepro(artifact, artifactPath);
+      this.ledger?.recordRoute(artifact.route);
       feedback.reproId = artifact.id;
       if (pending.captureId) this.pushCapture(this.captures.setOutcome(pending.captureId, "drafted", { reproId: artifact.id }));
     } catch (err) {

@@ -21,6 +21,12 @@ interface Row {
   context_ref: string | null;
   flagged_count: number;
   embedding: string;
+  observed_at: number;
+  valid_from: number;
+  superseded_at: number | null;
+  authority: string;
+  owner: string;
+  source: string;
 }
 
 function rowToIssue(r: Row): Issue {
@@ -32,6 +38,12 @@ function rowToIssue(r: Row): Issue {
     flow: r.flow ?? undefined,
     summary: r.summary,
     contextRef: r.context_ref ?? undefined,
+    observedAt: r.observed_at,
+    validFrom: r.valid_from,
+    supersededAt: r.superseded_at ?? undefined,
+    authority: r.authority as Issue["authority"],
+    owner: r.owner,
+    source: r.source,
   };
 }
 
@@ -44,17 +56,92 @@ export class Knot {
     this.embedder = embedder;
   }
 
+  private appendVersion(id: string, validFrom: number): void {
+    this.db.prepare(
+      `INSERT INTO issue_versions
+       (issue_id,status,observed_at,valid_from,superseded_at,authority,owner,source,flow,summary,context_ref,flagged_count)
+       SELECT id,status,observed_at,?,NULL,authority,owner,source,flow,summary,context_ref,flagged_count
+       FROM issues WHERE id = ?`,
+    ).run(validFrom, id);
+    const row = this.db.prepare(`SELECT status,authority,owner,source,flagged_count FROM issues WHERE id = ?`).get(id) as
+      | { status: string; authority: string; owner: string; source: string; flagged_count: number }
+      | undefined;
+    if (row) {
+      this.db.prepare(
+        `INSERT INTO ledger_events
+         (entity_type,entity_id,action,payload,observed_at,valid_from,superseded_at,authority,owner,source)
+         VALUES ('issue',?,?,?,?,?,?,?,?,?)`,
+      ).run(
+        id,
+        "versioned",
+        JSON.stringify({ status: row.status, flaggedCount: row.flagged_count }),
+        validFrom,
+        validFrom,
+        null,
+        row.authority,
+        row.owner,
+        row.source,
+      );
+    }
+  }
+
+  private transition(id: string, mutate: () => void): void {
+    const now = Date.now();
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db.prepare(`UPDATE issue_versions SET superseded_at = ? WHERE issue_id = ? AND superseded_at IS NULL`).run(now, id);
+      mutate();
+      this.db.prepare(`UPDATE issues SET updated_at = ?, observed_at = ?, valid_from = ?, superseded_at = NULL WHERE id = ?`).run(now, now, now, id);
+      this.appendVersion(id, now);
+      this.db.exec("COMMIT");
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
+  }
+
   async addIssue(input: { summary: string; flow?: string; contextRef?: string }): Promise<Issue> {
     const emb = await this.embedder.embed(input.summary);
     const now = Date.now();
     const id = `iss_${randomUUID()}`;
     this.db
       .prepare(
-        `INSERT INTO issues (id,status,created_at,updated_at,flow,summary,context_ref,flagged_count,embedding)
-         VALUES (?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO issues
+         (id,status,created_at,updated_at,flow,summary,context_ref,flagged_count,embedding,observed_at,valid_from,superseded_at,authority,owner,source)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       )
-      .run(id, "open", now, now, input.flow ?? null, input.summary, input.contextRef ?? null, 1, JSON.stringify(Array.from(emb)));
-    return { id, status: "open", createdAt: now, updatedAt: now, flow: input.flow, summary: input.summary, contextRef: input.contextRef };
+      .run(
+        id,
+        "open",
+        now,
+        now,
+        input.flow ?? null,
+        input.summary,
+        input.contextRef ?? null,
+        1,
+        JSON.stringify(Array.from(emb)),
+        now,
+        now,
+        null,
+        "human",
+        "local",
+        "local",
+      );
+    this.appendVersion(id, now);
+    return {
+      id,
+      status: "open",
+      createdAt: now,
+      updatedAt: now,
+      flow: input.flow,
+      summary: input.summary,
+      contextRef: input.contextRef,
+      observedAt: now,
+      validFrom: now,
+      authority: "human",
+      owner: "local",
+      source: "local",
+    };
   }
 
   /** Semantic search prior issues; return matches at/above the cosine threshold, best first. */
@@ -79,19 +166,21 @@ export class Knot {
 
   /** Record that an existing issue was flagged again; returns the new flag count. */
   bumpFlag(id: string): number {
-    this.db
-      .prepare(
-        `UPDATE issues SET flagged_count = flagged_count + 1, updated_at = ?,
-           status = CASE WHEN status = 'fixed' THEN 'recurring' ELSE status END
-         WHERE id = ?`,
-      )
-      .run(Date.now(), id);
+    this.transition(id, () => {
+      this.db.prepare(
+        `UPDATE issues SET flagged_count = flagged_count + 1,
+         status = CASE WHEN status = 'fixed' THEN 'recurring' ELSE status END,
+         authority = 'human' WHERE id = ?`,
+      ).run(id);
+    });
     const r = this.db.prepare(`SELECT flagged_count FROM issues WHERE id = ?`).get(id) as { flagged_count: number } | undefined;
     return r?.flagged_count ?? 1;
   }
 
-  markFixed(id: string): void {
-    this.db.prepare(`UPDATE issues SET status = 'fixed', updated_at = ? WHERE id = ?`).run(Date.now(), id);
+  markFixed(id: string, authority: Issue["authority"] = "agent"): void {
+    this.transition(id, () => {
+      this.db.prepare(`UPDATE issues SET status = 'fixed', authority = ? WHERE id = ?`).run(authority, id);
+    });
   }
 
   list(): Issue[] {

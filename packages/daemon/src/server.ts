@@ -217,6 +217,7 @@ export async function startDaemon(opts: {
     close: () =>
       new Promise<void>((resolveClose) => {
         stt.close();
+        orchestrator.close();
         server.close(() => resolveClose());
       }),
   };

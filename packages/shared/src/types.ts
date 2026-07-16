@@ -177,6 +177,7 @@ export interface ContextBundle {
 // ---------- Memory (knot-lite) ----------
 
 export type IssueStatus = "open" | "fixed" | "recurring";
+export type Authority = "verification" | "human" | "deterministic" | "agent" | "heuristic";
 
 export interface Issue {
   id: string;
@@ -186,6 +187,12 @@ export interface Issue {
   flow?: string;
   summary: string;
   contextRef?: string;
+  observedAt?: number;
+  validFrom?: number;
+  supersededAt?: number;
+  authority?: Authority;
+  owner?: string;
+  source?: string;
 }
 
 // The memory annotation that produces the hero moment.
