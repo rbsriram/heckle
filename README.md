@@ -172,7 +172,8 @@ up from a file, so it works with whatever you build with.
 
 ## more
 
-Step by step in [docs/getting-started.md](docs/getting-started.md).
+See the [current feature reference](docs/features.md) or follow the
+[step-by-step setup guide](docs/getting-started.md).
 
 For contributors working from source:
 
