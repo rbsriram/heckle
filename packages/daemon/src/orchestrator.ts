@@ -20,12 +20,18 @@ import {
 import { createLedger, createMemory, historyFor, type Knot, type Ledger, type RelatedIssue } from "../../memory/src/index.ts";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
 import { type CaptureLog, createCaptureLog } from "./captures.ts";
 import { loadConfig, loadUserConfig, saveUserConfig } from "./config.ts";
 import { selectionFromConfig, selectionToConfig } from "./delivery-selection.ts";
 import { createMetrics, type Metrics } from "./metrics.ts";
 import { createReproArtifact, ReplayEngine, ReproStore, VerificationEngine } from "../../replay/src/index.ts";
+import { classify } from "./fastlane/classify.ts";
+import { locateLiteral } from "./fastlane/locate.ts";
+import { UndoStore } from "./fastlane/undo.ts";
+import { routeRequest } from "./fastlane/router.ts";
+import { applyAstEdit, type AstEditRequest } from "./fastlane/ast-edit.ts";
+import { planStyleEdit } from "./fastlane/plan.ts";
 
 export interface StoredTrigger {
   id: string;
@@ -41,6 +47,7 @@ export interface PendingFeedback {
   issueId?: string; // the memory issue this draft created or matched
   captureId?: string; // the capture-history record this draft came from
   transcript?: string; // the user's raw words, hashed into the task context receipt
+  fastEdit?: { type: "ast"; request: AstEditRequest }; // applied directly on approve, no agent
 }
 
 type Reply = (msg: ServerMessage) => void;
@@ -438,7 +445,144 @@ export class Orchestrator {
     this.metrics?.record("heckle_triggered", { triggerId: trigger.id });
     reply({ type: "ack", triggerId: trigger.id, stats });
     this.pushCapture(record);
-    void this.draftAndReply(trigger, reply);
+    void this.tryFastLaneOrDraft(trigger, reply);
+  }
+
+  // Try the fast lane before drafting: a direct copy edit we can apply on approval without the
+  // model or an agent. Falls through to the normal draft when it does not apply (not a copy
+  // change, no resolvable target, ambiguous match, or an unsafe replacement).
+  private async tryFastLaneOrDraft(trigger: StoredTrigger, reply: Reply): Promise<void> {
+    const route = await routeRequest(trigger.intentText);
+    if (route.lane === "question") {
+      const related = await this.memory?.recall(trigger.intentText).catch(() => []) ?? [];
+      const answer = related.length
+        ? related.map((item) => `${item.issue.status}: ${item.issue.summary}`).join("; ")
+        : "No matching issue or fix is recorded in Heckle yet.";
+      this.pushCapture(this.captures.setOutcome(trigger.id, "noissue", { reason: answer }));
+      reply({ type: "answer", text: answer });
+      return;
+    }
+    if (route.lane === "instant") {
+      try {
+        if (await this.tryFastLane(trigger, reply)) return;
+      } catch (err) {
+        console.warn(`[heckle] fast lane errored, falling back to draft: ${(err as Error).message}`);
+      }
+    }
+    await this.draftAndReply(trigger, reply);
+  }
+
+  // Returns true when it produced a fast-lane review card. Never writes here: the edit is stashed
+  // on the pending draft and only applied on approval, so the hard gate holds.
+  private async tryFastLane(trigger: StoredTrigger, reply: Reply): Promise<boolean> {
+    const c = classify(trigger.intentText);
+    const sel = trigger.context.selection;
+    if (c.lane === "style") {
+      const request = planStyleEdit(trigger.intentText, sel);
+      if (!request) return false;
+      const dry = await applyAstEdit(this.projectRoot, request, { dryRun: true });
+      if (!dry.ok) return false;
+      const target = sel?.target;
+      const assertion = target && request.operation.kind === "class-token"
+        ? { type: "attribute_contains" as const, target, attribute: "class", expected: request.operation.newValue }
+        : target && request.operation.kind === "visibility"
+          ? { type: "attribute_present" as const, target, attribute: "hidden", expected: request.operation.hidden }
+          : target && request.operation.kind === "style"
+            ? { type: "style_equals" as const, target, property: request.operation.property, expected: String(request.operation.newValue) }
+            : request.operation.kind === "reorder" && sel?.parentTarget && sel.siblingTexts
+              ? {
+                  type: "child_text_order" as const,
+                  target: sel.parentTarget,
+                  expected: (() => {
+                    const values = [...sel.siblingTexts];
+                    const [moved] = values.splice(request.operation.fromIndex, 1);
+                    values.splice(request.operation.toIndex, 0, moved);
+                    return values;
+                  })(),
+                }
+              : undefined;
+      const feedback: Feedback = {
+        id: `fb_${randomUUID()}`,
+        intent: `Apply instant style edit: ${dry.preview}`,
+        target: { selector: sel?.selector },
+        severity: "polish",
+        repro: [],
+        context: { consoleRefs: [], networkRefs: [] },
+        fixHint: dry.preview,
+        assertions: assertion ? [assertion] : undefined,
+        history: null,
+      };
+      this.pending.set(feedback.id, {
+        feedback,
+        context: trigger.context,
+        captureId: trigger.id,
+        transcript: trigger.intentText,
+        fastEdit: { type: "ast", request },
+      });
+      this.pushCapture(this.captures.setOutcome(trigger.id, "drafted", { feedbackId: feedback.id, intent: feedback.intent, severity: feedback.severity }));
+      this.metrics?.record("draft_created", { feedbackId: feedback.id, severity: feedback.severity, fast: "style" });
+      reply({ type: "draft", feedback, attachments: { console: [], network: [] } });
+      return true;
+    }
+    if (c.lane !== "copy" || !c.newText) return false;
+    const oldText = c.oldText ?? sel?.targetText ?? sel?.text;
+    if (!oldText) {
+      console.log(`[heckle] fast-lane: copy to "${c.newText}" but nothing pointed at (click the element first) -> normal draft`);
+      return false;
+    }
+
+    const loc = await locateLiteral(
+      this.projectRoot,
+      oldText,
+      sel?.source ? { file: sel.source.file, line: sel.source.line } : undefined,
+    );
+    if (!loc.confident || loc.matches.length !== 1) {
+      console.log(
+        `[heckle] fast-lane: "${truncate(oldText, 40)}" not uniquely located (via=${loc.via}, matches=${loc.matches.length}) -> normal draft`,
+      );
+      return false;
+    }
+
+    const req: AstEditRequest = {
+      file: loc.matches[0].file,
+      line: loc.matches[0].line,
+      operation: { kind: "text", oldValue: oldText, newValue: c.newText },
+    };
+    const dry = await applyAstEdit(this.projectRoot, req, { dryRun: true });
+    if (!dry.ok) {
+      console.log(`[heckle] fast-lane: refused (${dry.reason}) -> normal draft`);
+      return false;
+    }
+
+    const feedback: Feedback = {
+      id: `fb_${randomUUID()}`,
+      intent: `Change copy: "${oldText}" -> "${c.newText}"`,
+      target: { selector: sel?.selector },
+      severity: "polish",
+      repro: [],
+      context: { consoleRefs: [], networkRefs: [] },
+      fixHint: dry.preview,
+      assertions: sel?.target ? [{ type: "text_equals", target: sel.target, expected: c.newText }] : undefined,
+      history: null,
+    };
+    this.pending.set(feedback.id, {
+      feedback,
+      context: trigger.context,
+      captureId: trigger.id,
+      transcript: trigger.intentText,
+      fastEdit: { type: "ast", request: req },
+    });
+    this.pushCapture(
+      this.captures.setOutcome(trigger.id, "drafted", {
+        feedbackId: feedback.id,
+        intent: feedback.intent,
+        severity: feedback.severity,
+      }),
+    );
+    this.metrics?.record("draft_created", { feedbackId: feedback.id, severity: feedback.severity, fast: "copy" });
+    console.log(`[heckle] fast-lane copy ${feedback.id}: ${dry.preview}`);
+    reply({ type: "draft", feedback, attachments: { console: [], network: [] } });
+    return true;
   }
 
   private async draftAndReply(trigger: StoredTrigger, reply: Reply): Promise<void> {
@@ -544,6 +688,10 @@ export class Orchestrator {
       return;
     }
     const feedback: Feedback = parsed.data;
+    if (pending.fastEdit) {
+      await this.applyFastEdit(feedbackId, pending, feedback, reply);
+      return;
+    }
     try {
       const artifact = createReproArtifact(
         this.projectRoot,
@@ -572,6 +720,7 @@ export class Orchestrator {
       reply({ type: "error", message: `could not create repro: ${(err as Error).message}` });
       return;
     }
+
     this.metrics?.record("draft_approved", { feedbackId });
     // Remember the issue so a completed Claude Code fix can mark it fixed (open -> fixed).
     if (pending.issueId) this.issueByFeedback.set(feedbackId, pending.issueId);
@@ -616,6 +765,87 @@ export class Orchestrator {
     } catch (err) {
       reply({ type: "error", message: `delivery failed: ${(err as Error).message}` });
     }
+  }
+
+  // A fast-lane copy edit approved: apply it directly to source (the one write, gated on approval),
+  // mark it fixed, and let the app's HMR show it. No agent, no delivery chain. If the source moved
+  // since capture the applier refuses (stale), and we report an error rather than guess.
+  private async applyFastEdit(feedbackId: string, pending: PendingFeedback, feedback: Feedback, reply: Reply): Promise<void> {
+    this.metrics?.record("draft_approved", { feedbackId });
+    const fastEdit = pending.fastEdit!;
+    const res = await applyAstEdit(this.projectRoot, fastEdit.request);
+    if (!res.ok || !res.before || !res.after) {
+      pending.fastEdit = undefined;
+      feedback.fixHint = `Instant lane attempted ${fastEdit.request.operation.kind} but refused: ${res.reason}. Continue in the agent lane.`;
+      console.log(`[heckle] instant edit refused (${res.reason}); routing to agent`);
+      await this.handleApprove(feedbackId, feedback, reply);
+      return;
+    }
+    const issueId = pending.issueId ?? `iss_${feedback.id}`;
+    const artifact = createReproArtifact(this.projectRoot, feedback, pending.context, issueId, pending.transcript ?? feedback.intent);
+    const relativeFile = relative(this.projectRoot, res.file).replaceAll("\\", "/");
+    artifact.surfaces = {
+      routes: [artifact.route],
+      files: [relativeFile],
+      elements: artifact.surfaces?.elements ?? [],
+    };
+    const artifactPath = this.reproStore.save(artifact);
+    this.ledger?.recordIssue({ id: issueId, summary: feedback.intent, severity: feedback.severity, flow: feedback.target.flow, contextRef: feedback.id });
+    this.ledger?.recordRepro(artifact, artifactPath);
+    this.ledger?.recordRoute(artifact.route);
+    const source = pending.context.selection?.source;
+    if (source) {
+      this.ledger?.recordElement({
+        stableKey: `${relativeFile}:${source.line ?? 0}:${source.column ?? 0}`,
+        sourceFile: relativeFile,
+        sourceLine: source.line,
+        sourceColumn: source.column,
+        testid: pending.context.selection?.target?.testid,
+        authority: "deterministic",
+      });
+    }
+    this.metrics?.record("instant_edit", { kind: fastEdit.request.operation.kind, durationMs: res.durationMs });
+    this.ledger?.recordFix({
+      issueId,
+      reproId: artifact.id,
+      diff: res.preview,
+      outcome: "applied",
+      authority: "deterministic",
+    });
+    new UndoStore(this.projectRoot).push({
+      id: feedbackId,
+      file: relativeFile,
+      before: res.before,
+      after: res.after,
+      createdAt: new Date().toISOString(),
+    });
+    feedback.reproId = artifact.id;
+    let fixed = true;
+    if (this.captureGate) {
+      const gate = await this.captureGate.gate(artifact, { runs: 3 });
+      fixed = gate.stable;
+    }
+    if (fixed && this.verification) {
+      const verification = await this.verification.verify(artifact);
+      fixed = verification.status === "fixed";
+    }
+    if (!fixed) {
+      try {
+        new UndoStore(this.projectRoot).undo();
+      } catch {}
+      pending.fastEdit = undefined;
+      console.log(`[heckle] instant edit did not verify; routing to agent`);
+      await this.handleApprove(feedbackId, feedback, reply);
+      return;
+    }
+    this.pending.delete(feedbackId);
+    if (pending.captureId) {
+      this.pushCapture(this.captures.setOutcome(pending.captureId, "fixed", { progress: undefined, intent: feedback.intent, reproId: artifact.id }));
+    }
+    this.metrics?.record("fix_landed", { feedbackId, fast: "copy" });
+    console.log(`[heckle] fast-lane applied ${feedbackId}: ${res.preview}`);
+    reply({ type: "delivered", feedbackId, results: [{ adapter: "file-inbox", ok: true, detail: `${res.preview}; undo with heckle undo` }] });
+    this.emit({ type: "fixStatus", feedbackId, ok: true, detail: "Undo with heckle undo" });
   }
 
   // Run an item that is sitting in the inbox (or that a prior run did not land) with the agent,

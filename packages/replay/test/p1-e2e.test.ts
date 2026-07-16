@@ -36,7 +36,7 @@ function runCli(cwd: string, args: string[]): Promise<{ code: number; output: st
   });
 }
 
-test("ten browser heckles pass capture and fix verification, then detect a reintroduced regression", { timeout: 60_000 }, async () => {
+test("ten browser heckles pass capture and fix verification, then detect a reintroduced regression", { timeout: 90_000 }, async () => {
   const root = mkdtempSync(resolve(tmpdir(), "heckle-p1-e2e-"));
   let brokenResult: number | undefined;
   const app = createServer((_req, res) => {

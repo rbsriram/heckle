@@ -106,6 +106,21 @@ export class ReplayEngine {
             await new Promise((resolveWait) => setTimeout(resolveWait, 50));
           } while (Date.now() < deadline);
           assertionResults.push({ assertion, passed: actual === assertion.expected, actual });
+        } else if (assertion.type === "attribute_contains") {
+          const actual = await locatorFor(page, assertion.target).getAttribute(assertion.attribute) ?? "";
+          assertionResults.push({ assertion, passed: actual.split(/\s+/).includes(assertion.expected), actual });
+        } else if (assertion.type === "attribute_present") {
+          const actual = await locatorFor(page, assertion.target).getAttribute(assertion.attribute);
+          assertionResults.push({ assertion, passed: (actual !== null) === assertion.expected, actual: actual ?? undefined });
+        } else if (assertion.type === "style_equals") {
+          const actual = await locatorFor(page, assertion.target).evaluate((element, property) => {
+            const style = (element as HTMLElement).style;
+            return style.getPropertyValue(property).trim() || String((style as unknown as Record<string, string>)[property] ?? "").trim();
+          }, assertion.property);
+          assertionResults.push({ assertion, passed: actual === assertion.expected, actual });
+        } else if (assertion.type === "child_text_order") {
+          const actual = await locatorFor(page, assertion.target).evaluate((element) => [...element.children].map((child) => (child.textContent ?? "").trim().replace(/\s+/g, " ")));
+          assertionResults.push({ assertion, passed: JSON.stringify(actual) === JSON.stringify(assertion.expected), actual: JSON.stringify(actual) });
         } else if (assertion.type === "console_clean") {
           const passed = assertion.levels.includes("error") ? consoleErrors.length === 0 : true;
           assertionResults.push({ assertion, passed, error: passed ? undefined : consoleErrors.join("\n") });

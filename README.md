@@ -104,6 +104,22 @@ until the element-to-source map is populated.
 Replay runs three times by default. Three passing outcomes pass the determinism gate; any failure
 quarantines the repro. Install Chromium once if prompted with `npx playwright@1.61.1 install chromium`.
 
+## instant literal edits
+
+Point at a React element and ask for an obvious copy, color, size, weight, radius, or visibility
+change. The rule-first router sends safe literal-only requests through a single-file TypeScript AST
+edit, while logic, imports, props, ambiguity, and failed guards fall through to the normal agent
+lane. Every instant edit records a deterministic Fix, maps its source surface, adds a replay
+assertion, and remains undoable with:
+
+```bash
+npx heckle-dev undo
+```
+
+The Vite plugin injects dev-only `data-heckle-src` locations into JSX. Next projects can wrap their
+config with `withHeckle` from `heckle-dev/next-plugin`; the underlying CommonJS loader is also
+exported as `heckle-dev/source-loader`.
+
 ## ambient QA signals
 
 Heckle quietly watches local in-page failures while you test: console errors, uncaught exceptions,

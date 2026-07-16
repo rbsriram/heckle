@@ -99,6 +99,18 @@ export interface NetworkEntry {
   ts: number;
 }
 
+// Where a pointed element's markup lives, read from a framework's dev hook (React fiber
+// _debugSource / __source, Svelte __svelte_meta, Vue data-v-inspector / __file). Enables the fast
+// lane: a copy or style tweak can be applied as a direct source edit instead of a full agent round
+// trip. Dev-only and best-effort; `line` may be absent (e.g. Vue file-only), and the whole thing is
+// absent when nothing resolves (production build, no dev hook), in which case the daemon falls back
+// to searching source for the literal, then to the normal agent path.
+export interface SourceLocation {
+  file: string;
+  line?: number;
+  column?: number;
+}
+
 // What the user was pointing at when they captured: highlighted text and/or the element under
 // the last click. Lets the model resolve "this / here / that" and set a concrete target.
 export interface ReproTarget {
@@ -113,6 +125,13 @@ export interface PointedTarget {
   selector?: string; // a CSS selector for the pointed element
   label?: string; // human-readable description, e.g. <button.cta> "Subscribe"
   target?: ReproTarget;
+  parentTarget?: ReproTarget;
+  source?: SourceLocation; // where this element's JSX lives, when resolvable (fast lane)
+  targetText?: string; // the element's own visible text, for locating a copy literal in source
+  className?: string;
+  inlineStyle?: Record<string, string>;
+  siblingIndex?: number;
+  siblingTexts?: string[];
 }
 
 export type ReproAction =
@@ -131,6 +150,10 @@ export interface ReproStateSeed {
 
 export type ReproAssertion =
   | { type: "text_equals"; target: ReproTarget; expected: string }
+  | { type: "attribute_contains"; target: ReproTarget; attribute: string; expected: string }
+  | { type: "attribute_present"; target: ReproTarget; attribute: string; expected: boolean }
+  | { type: "style_equals"; target: ReproTarget; property: string; expected: string }
+  | { type: "child_text_order"; target: ReproTarget; expected: string[] }
   | { type: "console_clean"; levels: ConsoleLevel[] }
   | { type: "no_failed_requests"; exclude: string[] };
 
@@ -327,6 +350,7 @@ export type ServerMessage =
   | { type: "ack"; triggerId: string; stats: { console: number; network: number; rrweb: number } }
   | { type: "draft"; feedback: Feedback; attachments?: { console: ConsoleEntry[]; network: NetworkEntry[] } }
   | { type: "noissue"; reason: string }
+  | { type: "answer"; text: string }
   | { type: "delivered"; feedbackId: string; results: DeliveryResult[] }
   // Pushed asynchronously when the background agent fix process exits (success or failure).
   | { type: "fixStatus"; feedbackId: string; ok: boolean; detail?: string }

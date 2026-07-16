@@ -2,9 +2,83 @@
 // element under their last click. This is what lets a note like "change this" or "move that"
 // resolve to a concrete element, so the draft targets it instead of guessing. Heckle's own UI
 // is always ignored.
-import type { PointedTarget, ReproTarget } from "../../../shared/src/index.ts";
+import type { PointedTarget, ReproTarget, SourceLocation } from "../../../shared/src/index.ts";
 
 const HECKLE_HOST_ID = "heckle-root";
+
+// Resolve a DOM element back to the markup that rendered it, so "call it Go Pro" or "make it
+// darker" can become a one-line source edit instead of a full agent round trip. Each framework
+// exposes a source location in dev differently; we try each in turn. Best-effort and dev-only:
+// any failure returns undefined and the daemon falls back to grepping source for the literal,
+// then to the normal draft-and-dispatch path. Nothing here is React-specific except one adapter.
+
+// React: the dev jsx-source transform stamps `_debugSource` on the fiber (React <=18) or a
+// `__source` prop (present whenever the transform ran). Walk up from the DOM node's fiber.
+function reactSource(el: Element): SourceLocation | undefined {
+  const key = Object.keys(el).find(
+    (k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"),
+  );
+  let fiber: any = key ? (el as unknown as Record<string, unknown>)[key] : null;
+  let hops = 0;
+  while (fiber && hops < 40) {
+    const s = fiber._debugSource ?? fiber.memoizedProps?.__source ?? fiber.pendingProps?.__source;
+    if (s && typeof s.fileName === "string" && typeof s.lineNumber === "number") {
+      return {
+        file: s.fileName,
+        line: s.lineNumber,
+        column: typeof s.columnNumber === "number" ? s.columnNumber : undefined,
+      };
+    }
+    fiber = fiber.return;
+    hops++;
+  }
+  return undefined;
+}
+
+// Svelte: dev builds attach `__svelte_meta.loc = { file, line, column }` to each element.
+function svelteSource(el: Element): SourceLocation | undefined {
+  let node: Element | null = el;
+  let hops = 0;
+  while (node && hops < 40) {
+    const loc = (node as any).__svelte_meta?.loc;
+    if (loc && typeof loc.file === "string" && typeof loc.line === "number") {
+      return { file: loc.file, line: loc.line, column: typeof loc.column === "number" ? loc.column : undefined };
+    }
+    node = node.parentElement;
+    hops++;
+  }
+  return undefined;
+}
+
+// Vue: vite-plugin-vue-inspector stamps `data-v-inspector="path:line:col"`. Failing that, the dev
+// component instance carries its SFC path in `type.__file` (file only, no line).
+function vueSource(el: Element): SourceLocation | undefined {
+  const tagged = typeof el.closest === "function" ? el.closest("[data-v-inspector]") : null;
+  const raw = tagged?.getAttribute("data-v-inspector");
+  const m = raw?.match(/^(.*):(\d+):(\d+)$/);
+  if (m) return { file: m[1], line: Number(m[2]), column: Number(m[3]) };
+  let node: any = el;
+  let hops = 0;
+  while (node && hops < 40) {
+    const file = node.__vueParentComponent?.type?.__file;
+    if (typeof file === "string") return { file };
+    node = node.parentElement;
+    hops++;
+  }
+  return undefined;
+}
+
+function resolveSource(el: Element): SourceLocation | undefined {
+  try {
+    const tagged = el.closest("[data-heckle-src]")?.getAttribute("data-heckle-src");
+    const match = tagged?.match(/^(.*):(\d+):(\d+)$/);
+    if (match) return { file: match[1], line: Number(match[2]), column: Number(match[3]) };
+    return reactSource(el) ?? svelteSource(el) ?? vueSource(el);
+  } catch {
+    // Framework internals vary; never let source resolution break capture.
+    return undefined;
+  }
+}
 
 export function withinHeckle(el: Element | null): boolean {
   if (!el) return false;
@@ -128,10 +202,23 @@ export function captureTarget(pointer: PointerState): PointedTarget | undefined 
   if (!el && pointer.el && Date.now() - pointer.at <= POINTED_RECENCY_MS) el = pointer.el;
   if (withinHeckle(el)) el = null;
   if (!text && !el) return undefined;
+  const targetText = el
+    ? (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 200) || undefined
+    : undefined;
+  const siblings = el?.parentElement ? [...el.parentElement.children] : [];
   return {
     text: text || undefined,
     selector: el ? cssPath(el) : undefined,
     label: el ? describe(el) : undefined,
     target: el ? targetForElement(el) : undefined,
+    parentTarget: el?.parentElement ? targetForElement(el.parentElement) : undefined,
+    source: el ? resolveSource(el) : undefined,
+    targetText,
+    className: el?.getAttribute("class") ?? undefined,
+    inlineStyle: el instanceof HTMLElement
+      ? Object.fromEntries([...el.style].map((property) => [property, el.style.getPropertyValue(property)]))
+      : undefined,
+    siblingIndex: el ? siblings.indexOf(el) : undefined,
+    siblingTexts: siblings.map((sibling) => (sibling.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 100)),
   };
 }

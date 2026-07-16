@@ -15,7 +15,9 @@
     "heckle": "dist/apps/cli/bin/heckle.js"
   },
   "exports": {
-    "./vite-plugin": "./dist/packages/capture/src/vite-plugin.js"
+    "./vite-plugin": "./dist/packages/capture/src/vite-plugin.js",
+    "./next-plugin": "./dist/packages/capture/src/next-plugin.js",
+    "./source-loader": "./dist/packages/capture/src/source-loader.cjs"
   },
   "files": [
     "dist/apps/cli/bin",
@@ -47,10 +49,10 @@
   "dependencies": {
     "playwright": "1.61.1",
     "rrweb": "2.0.1",
+    "typescript": "6.0.3",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@types/node": "24.13.2",
-    "typescript": "6.0.3"
+    "@types/node": "24.13.2"
   }
 }

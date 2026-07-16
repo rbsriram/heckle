@@ -6,7 +6,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-export type EventName = "session_start" | "heckle_triggered" | "draft_created" | "draft_approved" | "fix_landed";
+export type EventName = "session_start" | "heckle_triggered" | "draft_created" | "draft_approved" | "fix_landed" | "instant_edit";
 
 export interface MetricsSummary {
   counts: Record<string, number>;

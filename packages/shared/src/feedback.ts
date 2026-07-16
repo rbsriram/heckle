@@ -17,6 +17,10 @@ const ReproTargetSchema = z.object({
 
 export const ReproAssertionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text_equals"), target: ReproTargetSchema, expected: z.string() }),
+  z.object({ type: z.literal("attribute_contains"), target: ReproTargetSchema, attribute: z.string(), expected: z.string() }),
+  z.object({ type: z.literal("attribute_present"), target: ReproTargetSchema, attribute: z.string(), expected: z.boolean() }),
+  z.object({ type: z.literal("style_equals"), target: ReproTargetSchema, property: z.string(), expected: z.string() }),
+  z.object({ type: z.literal("child_text_order"), target: ReproTargetSchema, expected: z.array(z.string()) }),
   z.object({ type: z.literal("console_clean"), levels: z.array(z.enum(["log", "info", "warn", "error", "debug"])) }),
   z.object({ type: z.literal("no_failed_requests"), exclude: z.array(z.string()) }),
 ]);

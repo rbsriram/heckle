@@ -5,6 +5,7 @@ import { runMetrics } from "./commands/metrics.ts";
 import { runMcp } from "./commands/mcp.ts";
 import { runReplay } from "./commands/replay.ts";
 import { runRegressionTests } from "./commands/test.ts";
+import { runUndo } from "./commands/undo.ts";
 import { VERSION } from "../../../packages/shared/src/version.ts";
 import { assertSupportedNode } from "./readiness.ts";
 
@@ -20,6 +21,7 @@ Usage:
   heckle replay <id> [...]    Replay a repro 3 times (opts: --live, --headed, --runs, --url)
   heckle test [--changed ...] Run promoted regressions, optionally filtered by changed files
   heckle mcp                 Start the local Heckle MCP server over stdio
+  heckle undo                Undo the latest deterministic instant edit
   heckle metrics              Show local activation + retention metrics
   heckle version              Print version
   heckle help                 Show this help
@@ -49,6 +51,9 @@ export async function run(argv: string[]): Promise<void> {
       return;
     case "mcp":
       await runMcp(rest);
+      return;
+    case "undo":
+      runUndo(rest);
       return;
     case "metrics":
       runMetrics();

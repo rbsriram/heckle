@@ -139,6 +139,9 @@ export async function start(origin: string): Promise<void> {
         case "noissue":
           widget.showStatus(msg.reason ? `Nothing to flag: ${msg.reason}` : "Nothing to flag.");
           break;
+        case "answer":
+          widget.showStatus(msg.text);
+          break;
         case "delivered": {
           // Only claim an agent is on it when a dispatch adapter actually fired; in inbox-only
           // routing (or with the agent CLI unavailable) no fixStatus will ever arrive.

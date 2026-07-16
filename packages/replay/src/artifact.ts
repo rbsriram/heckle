@@ -8,6 +8,7 @@ import type {
   ReproTarget,
 } from "../../shared/src/index.ts";
 import { randomUUID } from "node:crypto";
+import { isAbsolute, relative } from "node:path";
 import { ReproStore } from "./store.ts";
 
 function interactionRoot(css: string): string {
@@ -63,6 +64,10 @@ export function createReproArtifact(
   const actions = trimActions(context.actions ?? [], url, context.selection?.target);
   const assertions = feedback.assertions?.length ? feedback.assertions : fallbackAssertions(context);
   const elements = new Set<string>();
+  const rawSourceFile = context.selection?.source?.file;
+  const sourceFile = rawSourceFile
+    ? (isAbsolute(rawSourceFile) ? relative(projectRoot, rawSourceFile) : rawSourceFile).replaceAll("\\", "/")
+    : undefined;
   for (const action of actions) {
     if (action.type === "goto") continue;
     const target = action.target;
@@ -110,7 +115,7 @@ export function createReproArtifact(
     determinism: { runs: 0, pass_rate: 0, quarantined: false, outcomes: [] },
     surfaces: {
       routes: [`${url.pathname}${url.search}${url.hash}`],
-      files: [],
+      files: sourceFile ? [sourceFile] : [],
       elements: [...elements],
     },
   };
