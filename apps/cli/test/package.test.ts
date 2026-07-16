@@ -49,7 +49,7 @@ test("published runtime source has no workspace package imports", () => {
     bin?: Record<string, string>;
   };
   assert.equal(manifest.name, "heckle-dev");
-  assert.equal(manifest.version, "0.0.1");
+  assert.equal(manifest.version, "0.1.0");
   assert.equal(manifest.private, undefined);
   assert.equal(manifest.bin?.heckle, "dist/apps/cli/bin/heckle.js");
 
