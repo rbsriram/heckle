@@ -25,7 +25,7 @@ baseline. The current implementation status after P0-P6 is:
 | F5. Instant edit lane | Implemented for React Vite/Next | Five AST edit classes, source mapping, deterministic facts, replay assertions, and stale-safe undo are present. |
 | F6. Memory layer | Implemented | Schema v5 has QA entities, team members, bitemporal versions, authority, owner/source, and JSON export. |
 | F7. Router | Implemented, model hook partial | Rules route instant/agent/question requests. Ambiguous model classification has a hook but no provider-backed classifier yet. |
-| F8. Distribution and install | Implemented for npm and local capture export | `heckle-dev@0.1.0` is prepared locally (`0.0.1` remains published); capture-only v1 uses local file export/import. |
+| F8. Distribution and install | Implemented for npm and local capture export | `heckle-dev@0.1.0` is published; capture-only v1 uses local file export/import. |
 | F9. Team layer | Minimum primitives implemented | Reporter/shipper roles and issue provenance exist. Hosted shared-ledger authorization is outside local v1. |
 
 The baseline audit's largest mismatch was F2: the UI could say **Fixed** after a working-tree change. That is now resolved. The tree change only starts verification; two replay passes are the authority for Fixed.
