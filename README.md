@@ -104,6 +104,17 @@ until the element-to-source map is populated.
 Replay runs three times by default. Three passing outcomes pass the determinism gate; any failure
 quarantines the repro. Install Chromium once if prompted with `npx playwright@1.61.1 install chromium`.
 
+## ambient QA signals
+
+Heckle quietly watches local in-page failures while you test: console errors, uncaught exceptions,
+unhandled rejections, and same-origin 4xx/5xx requests. It deduplicates variable values into one
+fingerprint per route and proposes a reviewable task after two occurrences, or immediately when a
+failed request follows a click. The launcher badge shows proposal count without interrupting you.
+Promote a proposal into the normal review gate or dismiss it permanently for that fingerprint.
+
+Edit `ambient.ignore` in `heckle.config.ts` to suppress app-specific endpoints. CLS, long-task, and
+hydration signals are available under `ambient.performance` and remain off by default.
+
 ## agent access over MCP
 
 Heckle exposes the local ledger and replay engine as seven MCP tools over stdio. Register it once

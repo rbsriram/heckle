@@ -56,6 +56,10 @@ const config: HeckleConfig = {
   privacy: {
     localOnly: true, // true = hard no-egress: forces local voice + local model + local memory
   },
+  ambient: {
+    ignore: ["analytics", "source-map", "sourcemap", "favicon.ico"],
+    performance: { cls: false, longTasks: false, hydration: false },
+  },
 }
 
 // To switch drafting to DeepSeek (faster, cloud): put your key in .env as DEEPSEEK_API_KEY,

@@ -1,7 +1,7 @@
 // The brain. Receives widget messages, holds captured context, drafts feedback via the
 // configured provider, and (from M3) runs the approval queue + delivery. M2 scope: on a
 // trigger, ack capture, then draft a structured Feedback and send it for review.
-import type { CaptureRecord, ClientMessage, ContextBundle, DeliverySelection, Feedback, HeckleConfig, ServerMessage } from "../../shared/src/index.ts";
+import type { AmbientProposal, CaptureRecord, ClientMessage, ContextBundle, DeliverySelection, Feedback, HeckleConfig, ServerMessage } from "../../shared/src/index.ts";
 import { VERSION } from "../../shared/src/version.ts";
 import { createProvider, DRAFTING_PRESETS, type ModelProvider, providerKeyEnv } from "../../providers/src/index.ts";
 import { FeedbackSchema, isNoIssue } from "../../shared/src/feedback.ts";
@@ -64,6 +64,7 @@ export class Orchestrator {
   private readonly delivered = new Map<string, PendingFeedback>();
   private readonly verificationAttempts = new Map<string, number>();
   private readonly verificationInFlight = new Set<string>();
+  private readonly ambient = new Map<string, AmbientProposal>();
   // feedbackId -> issueId, kept past approval so a completed fix can mark the issue fixed.
   private readonly issueByFeedback = new Map<string, string>();
   // Rebuilt when the gear changes the drafting model, so these are not readonly.
@@ -290,11 +291,53 @@ export class Orchestrator {
 
       case "history":
         reply({ type: "history", captures: this.captures.list() });
+        reply(this.ambientDigest());
         return;
+
+      case "ambientSignal": {
+        this.ledger?.recordSignal(msg.signal.fingerprint, msg.signal.route);
+        if (this.ledger?.signalDismissed(msg.signal.fingerprint)) return;
+        if (msg.signal.context) {
+          this.ambient.set(msg.signal.fingerprint, {
+            ...msg.signal,
+            dismissed: false,
+            proposedAt: Date.now(),
+          });
+        } else {
+          const current = this.ambient.get(msg.signal.fingerprint);
+          if (current) this.ambient.set(msg.signal.fingerprint, { ...current, count: msg.signal.count });
+        }
+        const digest = this.ambientDigest();
+        reply(digest);
+        this.emit(digest);
+        return;
+      }
+
+      case "ambientDismiss":
+        this.ledger?.dismissSignal(msg.fingerprint);
+        this.ambient.delete(msg.fingerprint);
+        reply(this.ambientDigest());
+        return;
+
+      case "ambientPromote": {
+        const proposal = this.ambient.get(msg.fingerprint);
+        if (!proposal?.context) {
+          reply({ type: "error", message: "ambient proposal not found" });
+          return;
+        }
+        this.ambient.delete(msg.fingerprint);
+        this.handleTrigger(`Investigate ${proposal.summary}`, proposal.context, reply);
+        return;
+      }
 
       default:
         reply({ type: "error", message: `unknown message type` });
     }
+  }
+
+  private ambientDigest(): Extract<ServerMessage, { type: "ambientDigest" }> {
+    const proposals = [...this.ambient.values()].sort((a, b) => b.proposedAt - a.proposedAt);
+    return { type: "ambientDigest", count: proposals.length, proposals };
   }
 
   /** The gear changed dispatch routing: rebuild the chain over the boot config, no restart. */

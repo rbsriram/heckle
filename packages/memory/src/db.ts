@@ -126,6 +126,20 @@ export function openDb(path: string): DatabaseSync {
       owner TEXT NOT NULL DEFAULT 'local',
       source TEXT NOT NULL DEFAULT 'local'
     );
+    CREATE TABLE IF NOT EXISTS signal_versions (
+      version_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      signal_id TEXT NOT NULL,
+      fingerprint TEXT NOT NULL,
+      route TEXT NOT NULL,
+      count INTEGER NOT NULL,
+      dismissed INTEGER NOT NULL,
+      observed_at INTEGER NOT NULL,
+      valid_from INTEGER NOT NULL,
+      superseded_at INTEGER,
+      authority TEXT NOT NULL,
+      owner TEXT NOT NULL,
+      source TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS signals (
       id TEXT PRIMARY KEY,
       fingerprint TEXT NOT NULL UNIQUE,
@@ -147,6 +161,10 @@ export function openDb(path: string): DatabaseSync {
     (issue_id,status,observed_at,valid_from,superseded_at,authority,owner,source,flow,summary,severity,context_ref,flagged_count)
     SELECT id,status,observed_at,valid_from,NULL,authority,owner,source,flow,summary,severity,context_ref,flagged_count
     FROM issues WHERE NOT EXISTS (SELECT 1 FROM issue_versions v WHERE v.issue_id = issues.id)`).run();
-  db.exec(`PRAGMA user_version = 3;`);
+  db.prepare(`INSERT INTO signal_versions
+    (signal_id,fingerprint,route,count,dismissed,observed_at,valid_from,superseded_at,authority,owner,source)
+    SELECT id,fingerprint,route,count,dismissed,observed_at,valid_from,NULL,authority,owner,source
+    FROM signals WHERE NOT EXISTS (SELECT 1 FROM signal_versions v WHERE v.signal_id = signals.id)`).run();
+  db.exec(`PRAGMA user_version = 4;`);
   return db;
 }

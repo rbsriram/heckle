@@ -9,6 +9,7 @@ import { startRrwebRecording } from "./recorder.ts";
 import { captureTarget, installPointerTracking } from "./target.ts";
 import { connect } from "./transport.ts";
 import { createWidget } from "./widget.ts";
+import { AmbientDetector, installGlobalErrorCapture } from "./ambient.ts";
 
 export async function start(origin: string): Promise<void> {
   const w = window as Window & { __heckleStarted?: boolean };
@@ -38,14 +39,19 @@ export async function start(origin: string): Promise<void> {
   // vs in-browser Web Speech). Default to local on any failure.
   let voiceProvider = "local";
   let sttAvailable = false;
+  let ambientIgnore = ["analytics", "source-map", "sourcemap", "favicon.ico"];
+  let ambientPerformance: { cls?: boolean; longTasks?: boolean; hydration?: boolean } = {};
   let configOk = true;
   try {
     const cfg = (await (await fetch(`${origin}/config`)).json()) as {
       voice?: { provider?: string };
       sttAvailable?: boolean;
+      ambient?: { ignore?: string[]; performance?: { cls?: boolean; longTasks?: boolean; hydration?: boolean } };
     };
     voiceProvider = cfg.voice?.provider ?? "local";
     sttAvailable = !!cfg.sttAvailable;
+    ambientIgnore = cfg.ambient?.ignore ?? ambientIgnore;
+    ambientPerformance = cfg.ambient?.performance ?? {};
   } catch {
     configOk = false; // daemon /config unreachable; text capture still works, voice is off
   }
@@ -89,6 +95,12 @@ export async function start(origin: string): Promise<void> {
     },
     onSetConfig(cfg) {
       transport.send({ type: "setConfig", ...cfg });
+    },
+    onAmbientPromote(fingerprint) {
+      transport.send({ type: "ambientPromote", fingerprint });
+    },
+    onAmbientDismiss(fingerprint) {
+      transport.send({ type: "ambientDismiss", fingerprint });
     },
   });
 
@@ -152,12 +164,56 @@ export async function start(origin: string): Promise<void> {
         case "history":
           widget.seedTasks(msg.captures);
           break;
+        case "ambientDigest":
+          widget.setAmbient(msg.proposals);
+          break;
         case "error":
           widget.showStatus(`Error: ${msg.message}`);
           break;
       }
     },
   });
+
+  const detector = new AmbientDetector({
+    route: () => `${location.pathname}${location.search}${location.hash}`,
+    origin: () => location.origin,
+    context: () => assembleContext(buffers, { url: location.href, selection: captureTarget(pointer) }),
+    actions: () => buffers.actions?.snapshot() ?? [],
+    ignore: ambientIgnore,
+    emit: (signal) => transport.send({ type: "ambientSignal", signal }),
+  });
+  installGlobalErrorCapture(detector);
+  const seenConsole = new Set<string>();
+  const seenNetwork = new Set<string>();
+  setInterval(() => {
+    const consoleEntries = buffers.console.snapshot();
+    for (const entry of consoleEntries) {
+      if (!seenConsole.has(entry.id)) {
+        detector.observeConsole(entry);
+        if (ambientPerformance.hydration && /hydration|did not match server-rendered/i.test(entry.args.join(" "))) {
+          detector.observePerformance(`hydration mismatch: ${entry.args.join(" ")}`, entry.ts);
+        }
+      }
+    }
+    seenConsole.clear();
+    for (const entry of consoleEntries) seenConsole.add(entry.id);
+    const networkEntries = buffers.network.snapshot();
+    for (const entry of networkEntries) if (!seenNetwork.has(entry.id)) detector.observeNetwork(entry);
+    seenNetwork.clear();
+    for (const entry of networkEntries) seenNetwork.add(entry.id);
+  }, 500);
+  if (ambientPerformance.longTasks && typeof PerformanceObserver !== "undefined") {
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) if (entry.duration > 200) detector.observePerformance(`long task ${Math.round(entry.duration)}ms`);
+    }).observe({ type: "longtask", buffered: true });
+  }
+  if (ambientPerformance.cls && typeof PerformanceObserver !== "undefined") {
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as Array<PerformanceEntry & { value?: number; hadRecentInput?: boolean }>) {
+        if (!entry.hadRecentInput && (entry.value ?? 0) > 0.1) detector.observePerformance(`CLS spike ${(entry.value ?? 0).toFixed(3)}`);
+      }
+    }).observe({ type: "layout-shift", buffered: true });
+  }
 
   console.log("[heckle] capture attached →", origin);
 }

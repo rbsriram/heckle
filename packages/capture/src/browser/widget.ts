@@ -2,7 +2,7 @@
 // (you dictate into it with your own OS dictation, TypeWhisper + Parakeet, or type),
 // a send button, a status line, and a review card that shows the drafted Feedback with
 // Approve / Discard. Rendered in a Shadow DOM so host styles never collide.
-import type { CaptureRecord, ConsoleEntry, DeliverySelection, Feedback, NetworkEntry } from "../../../shared/src/index.ts";
+import type { AmbientProposal, CaptureRecord, ConsoleEntry, DeliverySelection, Feedback, NetworkEntry } from "../../../shared/src/index.ts";
 import { createRecorder } from "./record.ts";
 
 // Minimal Web Speech types (often absent from lib.dom). Erased at runtime.
@@ -40,6 +40,7 @@ export interface WidgetApi {
   onReady(daemonSelection?: DeliverySelection, project?: string): void;
   // Reflect the current drafting model in the gear (from `ready` or a `config` push).
   setDrafting(drafting?: { provider: string; model: string }, error?: string): void;
+  setAmbient(proposals: AmbientProposal[]): void;
 }
 
 export interface WidgetOptions {
@@ -49,6 +50,8 @@ export interface WidgetOptions {
   onRemove: (captureId: string) => void; // remove a row (drops the draft/inbox item too)
   onSetDelivery?: (selection: DeliverySelection) => void; // gear changed dispatch routing
   onSetConfig?: (cfg: { provider: string; model?: string; baseUrl?: string; apiKey?: string }) => void; // gear changed the model
+  onAmbientPromote?: (fingerprint: string) => void;
+  onAmbientDismiss?: (fingerprint: string) => void;
   voiceProvider?: string; // "local" | "webspeech" | "deepgram"
   sttAvailable?: boolean; // daemon has the local Parakeet STT worker
   onVoice?: (wav: Blob) => Promise<string>; // send recorded audio to the daemon, get text back
@@ -76,6 +79,11 @@ const STYLES = `
     100% { box-shadow: 0 3px 10px rgba(0,0,0,.25), 0 0 0 0 rgba(229,72,77,0); }
   }
   .dot { position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; background: #e5484d; border: 2px solid #111; }
+  .ambientcount { position: absolute; top: -6px; left: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ff6a3d; color: #fff; font-size: 10px; font-weight: 700; line-height: 18px; }
+  .ambient { margin: 8px 0 12px; display: grid; gap: 6px; }
+  .ambientitem { padding: 9px; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; font-size: 11px; color: rgba(255,255,255,.78); }
+  .ambientactions { display: flex; gap: 6px; margin-top: 7px; }
+  .ambientactions button { border: 0; border-radius: 7px; padding: 4px 8px; cursor: pointer; font-size: 10px; }
   .dot.on { background: #e6e8eb; }
   /* Fix status, visible on the minimized launcher: orange + throbbing halo while the agent works,
      blue when it landed, red when it did not. */
@@ -264,7 +272,7 @@ export function createWidget(options: WidgetOptions): WidgetApi {
   const launcher = document.createElement("button");
   launcher.className = "launcher";
   launcher.title = LAUNCHER_TITLE;
-  launcher.innerHTML = `<span class="hmark">h</span><span class="dot" id="dot"></span>`;
+  launcher.innerHTML = `<span class="hmark">h</span><span class="dot" id="dot"></span><span class="ambientcount" id="ambientcount" hidden></span>`;
 
   const voiceProvider = options.voiceProvider ?? "local";
   const SR =
@@ -287,6 +295,7 @@ export function createWidget(options: WidgetOptions): WidgetApi {
     <button class="close" id="close" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg></button>
     <div class="content" id="content">
       <p class="title">Go heckle</p>
+      <div class="ambient" id="ambient"></div>
       <div class="tasks" id="tasks"><p class="taskempty">Flag something and it shows up here.</p></div>
     </div>
     <div class="archive" id="archive">
@@ -344,6 +353,8 @@ export function createWidget(options: WidgetOptions): WidgetApi {
   const sendBtn = panel.querySelector("#send") as HTMLButtonElement;
   const statusEl = panel.querySelector("#status") as HTMLDivElement;
   const tasksEl = panel.querySelector("#tasks") as HTMLDivElement;
+  const ambientEl = panel.querySelector("#ambient") as HTMLDivElement;
+  const ambientCount = launcher.querySelector("#ambientcount") as HTMLSpanElement;
   const micBtn = panel.querySelector("#mic") as HTMLButtonElement | null;
   const closeBtn = panel.querySelector("#close") as HTMLButtonElement;
   const composerEl = panel.querySelector("#composer") as HTMLDivElement;
@@ -1162,6 +1173,27 @@ export function createWidget(options: WidgetOptions): WidgetApi {
     clearInput() {
       ta.value = "";
       updateSend();
+    },
+    setAmbient(proposals: AmbientProposal[]) {
+      ambientCount.hidden = proposals.length === 0;
+      ambientCount.textContent = String(proposals.length);
+      ambientEl.replaceChildren(...proposals.map((proposal) => {
+        const item = document.createElement("div");
+        item.className = "ambientitem";
+        const text = document.createElement("div");
+        text.textContent = `${proposal.summary} (${proposal.count}×)`;
+        const actions = document.createElement("div");
+        actions.className = "ambientactions";
+        const promote = document.createElement("button");
+        promote.textContent = "Review task";
+        promote.onclick = () => options.onAmbientPromote?.(proposal.fingerprint);
+        const dismiss = document.createElement("button");
+        dismiss.textContent = "Dismiss";
+        dismiss.onclick = () => options.onAmbientDismiss?.(proposal.fingerprint);
+        actions.append(promote, dismiss);
+        item.append(text, actions);
+        return item;
+      }));
     },
     setDrafting(drafting?: { provider: string; model: string; baseUrl?: string }, error?: string) {
       if (drafting) {

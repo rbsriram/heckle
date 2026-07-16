@@ -260,10 +260,50 @@ export class Ledger {
     this.db.close();
   }
 
+  private versionSignal(id: string, now: number): void {
+    this.db.prepare(
+      `INSERT INTO signal_versions
+       (signal_id,fingerprint,route,count,dismissed,observed_at,valid_from,superseded_at,authority,owner,source)
+       SELECT id,fingerprint,route,count,dismissed,observed_at,?,NULL,authority,owner,source FROM signals WHERE id=?`,
+    ).run(now, id);
+  }
+
+  signalDismissed(fingerprint: string): boolean {
+    const row = this.db.prepare(`SELECT dismissed FROM signals WHERE fingerprint=?`).get(fingerprint) as { dismissed: number } | undefined;
+    return row?.dismissed === 1;
+  }
+
+  dismissSignal(fingerprint: string): void {
+    const row = this.db.prepare(`SELECT id FROM signals WHERE fingerprint=?`).get(fingerprint) as { id: string } | undefined;
+    if (!row) return;
+    const now = Date.now();
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db.prepare(`UPDATE signal_versions SET superseded_at=? WHERE signal_id=? AND superseded_at IS NULL`).run(now, row.id);
+      this.db.prepare(`UPDATE signals SET dismissed=1,observed_at=?,valid_from=?,authority='human' WHERE id=?`).run(now, now, row.id);
+      this.versionSignal(row.id, now);
+      this.db.exec("COMMIT");
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
+    this.event("signal", row.id, "dismissed", { fingerprint }, "human");
+  }
+
   recordSignal(fingerprint: string, route: string): string {
     const existing = this.db.prepare(`SELECT id FROM signals WHERE fingerprint = ?`).get(fingerprint) as { id: string } | undefined;
     if (existing) {
-      this.db.prepare(`UPDATE signals SET count=count+1,observed_at=? WHERE id=?`).run(Date.now(), existing.id);
+      const now = Date.now();
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        this.db.prepare(`UPDATE signal_versions SET superseded_at=? WHERE signal_id=? AND superseded_at IS NULL`).run(now, existing.id);
+        this.db.prepare(`UPDATE signals SET count=count+1,observed_at=?,valid_from=? WHERE id=?`).run(now, now, existing.id);
+        this.versionSignal(existing.id, now);
+        this.db.exec("COMMIT");
+      } catch (err) {
+        this.db.exec("ROLLBACK");
+        throw err;
+      }
       this.event("signal", existing.id, "observed", { fingerprint, route }, "heuristic");
       return existing.id;
     }
@@ -274,6 +314,7 @@ export class Ledger {
        (id,fingerprint,route,count,dismissed,observed_at,valid_from,superseded_at,authority,owner,source)
        VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
     ).run(id, fingerprint, route, 1, 0, now, now, null, "heuristic", "local", "local");
+    this.versionSignal(id, now);
     this.event("signal", id, "recorded", { fingerprint, route }, "heuristic");
     return id;
   }

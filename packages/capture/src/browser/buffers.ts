@@ -46,7 +46,8 @@ export function installConsoleCapture(buffer: RingBuffer<ConsoleEntry>, target: 
     const bound = (fn as (...a: unknown[]) => void).bind(target);
     original[level] = bound;
     (target as unknown as Record<string, unknown>)[level] = (...args: unknown[]) => {
-      buffer.push({ id: nextId("c"), level, args: args.map(safeStringify), ts: Date.now() });
+      const error = args.find((arg): arg is Error => arg instanceof Error);
+      buffer.push({ id: nextId("c"), level, args: args.map(safeStringify), stack: error?.stack, ts: Date.now() });
       bound(...args);
     };
   }

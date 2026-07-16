@@ -22,10 +22,10 @@ test("migration creates every minimum ledger primitive and preserves an old issu
 
   const db = openDb(path);
   const tables = (db.prepare(`SELECT name FROM sqlite_master WHERE type='table'`).all() as Array<{ name: string }>).map((row) => row.name);
-  for (const table of ["issues", "issue_versions", "repros", "fixes", "sessions", "elements", "routes", "signals", "ledger_events"]) {
+  for (const table of ["issues", "issue_versions", "repros", "fixes", "sessions", "elements", "routes", "signals", "signal_versions", "ledger_events"]) {
     assert.ok(tables.includes(table), `created ${table}`);
   }
-  assert.equal((db.prepare(`PRAGMA user_version`).get() as { user_version: number }).user_version, 3);
+  assert.equal((db.prepare(`PRAGMA user_version`).get() as { user_version: number }).user_version, 4);
   assert.equal((db.prepare(`SELECT owner,source FROM issues WHERE id='iss_old'`).get() as { owner: string; source: string }).owner, "local");
   assert.equal((db.prepare(`SELECT count(*) AS n FROM issue_versions WHERE issue_id='iss_old'`).get() as { n: number }).n, 1);
   db.close();
@@ -79,6 +79,7 @@ test("Ledger records Repro, Fix, Session, Element, Route, and Signal facts with 
   const routeId = ledger.recordRoute("/checkout");
   const signalId = ledger.recordSignal("error|frame|route", "/checkout");
   ledger.recordSignal("error|frame|route", "/checkout");
+  ledger.dismissSignal("error|frame|route");
 
   assert.ok(fixId.startsWith("fix_"));
   assert.ok(routeId.startsWith("rte_"));
@@ -86,6 +87,11 @@ test("Ledger records Repro, Fix, Session, Element, Route, and Signal facts with 
   assert.equal((db.prepare(`SELECT authority FROM fixes WHERE id=?`).get(fixId) as { authority: string }).authority, "verification");
   assert.deepEqual(JSON.parse((db.prepare(`SELECT testid_history FROM elements WHERE id=?`).get(elementId) as { testid_history: string }).testid_history), ["save"]);
   assert.equal((db.prepare(`SELECT count FROM signals WHERE id=?`).get(signalId) as { count: number }).count, 2);
+  assert.equal(ledger.signalDismissed("error|frame|route"), true);
+  const signalVersions = db.prepare(`SELECT superseded_at,dismissed FROM signal_versions WHERE signal_id=? ORDER BY version_id`).all(signalId) as Array<{ superseded_at: number | null; dismissed: number }>;
+  assert.deepEqual(signalVersions.map((version) => version.dismissed), [0, 0, 1]);
+  assert.ok(signalVersions[0].superseded_at && signalVersions[1].superseded_at);
+  assert.equal(signalVersions[2].superseded_at, null);
   assert.ok((db.prepare(`SELECT count(*) AS n FROM ledger_events`).get() as { n: number }).n >= 8);
   assert.equal(ledger.authorityWins("verification", "human"), true);
   assert.equal(ledger.authorityWins("heuristic", "agent"), false);

@@ -50,6 +50,10 @@ export const DEFAULT_CONFIG: HeckleConfig = {
   agent: "claude-code",
   memory: { embedProvider: "ollama", embedModel: "nomic-embed-text" },
   privacy: { localOnly: true },
+  ambient: {
+    ignore: ["analytics", "source-map", "sourcemap", "favicon.ico"],
+    performance: { cls: false, longTasks: false, hydration: false },
+  },
 };
 
 // The user-writable config layer, set via `heckle config` or the widget gear so people configure
@@ -105,6 +109,11 @@ function mergeConfig(base: HeckleConfig, over: Partial<HeckleConfig>): HeckleCon
     },
     memory: { ...base.memory!, ...over.memory },
     privacy: { ...base.privacy, ...over.privacy },
+    ambient: {
+      ...base.ambient,
+      ...over.ambient,
+      performance: { ...base.ambient?.performance, ...over.ambient?.performance },
+    },
   };
 }
 

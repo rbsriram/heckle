@@ -68,6 +68,10 @@ export interface HeckleConfig {
   agent: AgentTarget;
   memory?: { embedProvider: EmbedProvider; embedModel: string };
   privacy: { localOnly: boolean };
+  ambient?: {
+    ignore?: string[];
+    performance?: { cls?: boolean; longTasks?: boolean; hydration?: boolean };
+  };
 }
 
 // ---------- Capture context ----------
@@ -78,6 +82,7 @@ export interface ConsoleEntry {
   id: string;
   level: ConsoleLevel;
   args: string[];
+  stack?: string;
   ts: number;
 }
 
@@ -270,6 +275,21 @@ export interface CaptureRecord {
 
 // ---------- Wire protocol (widget <-> daemon over WebSocket) ----------
 
+export interface AmbientSignal {
+  fingerprint: string;
+  kind: "console" | "exception" | "rejection" | "network" | "performance";
+  summary: string;
+  route: string;
+  count: number;
+  userVisible: boolean;
+  context?: ContextBundle;
+}
+
+export interface AmbientProposal extends AmbientSignal {
+  dismissed: boolean;
+  proposedAt: number;
+}
+
 export type ClientMessage =
   | { type: "hello"; url: string }
   | { type: "trigger"; intentText: string; context: ContextBundle; insist?: boolean }
@@ -285,7 +305,10 @@ export type ClientMessage =
   // provider is rebuilt live). provider = "ollama" | "anthropic" | any OpenAI-compatible name;
   // baseUrl for a custom/OpenAI-compatible endpoint; apiKey for cloud.
   | { type: "setConfig"; provider?: string; model?: string; baseUrl?: string; apiKey?: string; voice?: string }
-  | { type: "history" };
+  | { type: "history" }
+  | { type: "ambientSignal"; signal: AmbientSignal }
+  | { type: "ambientDismiss"; fingerprint: string }
+  | { type: "ambientPromote"; fingerprint: string };
 
 export type ServerMessage =
   // project = the daemon's project root, so the widget can scope per-project state (e.g. the
@@ -295,6 +318,7 @@ export type ServerMessage =
   // Pushed after setConfig so the gear reflects the new model (and any provider error).
   | { type: "config"; drafting: { provider: string; model: string; baseUrl?: string }; error?: string }
   | { type: "history"; captures: CaptureRecord[] }
+  | { type: "ambientDigest"; count: number; proposals: AmbientProposal[] }
   // Pushed whenever a single capture's state changes (added, drafted, dispatched, progress line,
   // fixed/failed), so the widget's live task list re-renders that one row without re-fetching.
   | { type: "capture"; record: CaptureRecord }

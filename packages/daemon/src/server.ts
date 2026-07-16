@@ -174,6 +174,7 @@ export async function startDaemon(opts: {
           voice: config.voice,
           agent: config.agent,
           privacy: config.privacy,
+          ambient: config.ambient,
           sttAvailable: stt.available,
           wsUrl: `ws://127.0.0.1:${port}${WS_PATH}`,
         });
