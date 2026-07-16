@@ -60,6 +60,7 @@ test("trigger -> draft -> approve -> delivered (inbox floor)", async () => {
       delivery: { whichFn: async () => false }, // no claude available -> file-inbox floor
       memory: null, // delivery test: skip recall
       metrics: null,
+      verification: null,
     });
     const replies: ServerMessage[] = [];
     const reply = (m: ServerMessage) => replies.push(m);
@@ -105,6 +106,7 @@ test("history: a capture is recorded and its outcome tracks through drafting", a
       delivery: { whichFn: async () => false },
       memory: null,
       metrics: null,
+      verification: null,
     });
     const replies: ServerMessage[] = [];
     const reply = (m: ServerMessage) => replies.push(m);
@@ -143,6 +145,7 @@ test("fixStatus: background fix completion pushes status + marks the capture fix
       },
       memory: null,
       metrics: null,
+      verification: null,
     });
     const emitted: ServerMessage[] = [];
     orch.setEmitter((m) => emitted.push(m));
@@ -181,7 +184,8 @@ test("setConfig persists the chosen model + key and rebuilds the provider live",
   const prev = process.env.HECKLE_CONFIG_DIR;
   process.env.HECKLE_CONFIG_DIR = cfgHome; // keep the test off the real ~/.heckle
   try {
-    const orch = new Orchestrator(config, root, { provider: stubProvider, delivery: { whichFn: async () => false }, memory: null, metrics: null });
+    const orch = new Orchestrator(config, root, { provider: stubProvider, delivery: { whichFn: async () => false }, memory: null, metrics: null,
+      verification: null });
     const replies: ServerMessage[] = [];
     const reply = (m: ServerMessage) => replies.push(m);
 
@@ -220,7 +224,8 @@ test("setConfig accepts any OpenAI-compatible provider (base URL + <PROVIDER>_AP
   const prev = process.env.HECKLE_CONFIG_DIR;
   process.env.HECKLE_CONFIG_DIR = cfgHome;
   try {
-    const orch = new Orchestrator(config, root, { provider: stubProvider, delivery: { whichFn: async () => false }, memory: null, metrics: null });
+    const orch = new Orchestrator(config, root, { provider: stubProvider, delivery: { whichFn: async () => false }, memory: null, metrics: null,
+      verification: null });
     const replies: ServerMessage[] = [];
     const reply = (m: ServerMessage) => replies.push(m);
 
@@ -251,7 +256,8 @@ test("approve with an edited instruction ships the edited intent, not the drafte
   const root = mkdtempSync(resolve(tmpdir(), "heckle-edit-"));
   try {
     const inboxOnly: HeckleConfig = { ...config, delivery: { order: ["file-inbox", "clipboard"] } };
-    const orch = new Orchestrator(inboxOnly, root, { provider: stubProvider, delivery: { whichFn: async () => false }, memory: null, metrics: null });
+    const orch = new Orchestrator(inboxOnly, root, { provider: stubProvider, delivery: { whichFn: async () => false }, memory: null, metrics: null,
+      verification: null });
     const replies: ServerMessage[] = [];
     const reply = (m: ServerMessage) => replies.push(m);
 
@@ -292,6 +298,7 @@ test("run: an inbox item is dispatched to the agent from the panel, then lands",
       },
       memory: null,
       metrics: null,
+      verification: null,
     });
     const replies: ServerMessage[] = [];
     const reply = (m: ServerMessage) => replies.push(m);
@@ -337,6 +344,7 @@ test("remove: drops the row and strips the item from .heckle/inbox.md", async ()
       delivery: { whichFn: async () => false },
       memory: null,
       metrics: null,
+      verification: null,
     });
     const emitted: ServerMessage[] = [];
     orch.setEmitter((m) => emitted.push(m));
@@ -382,6 +390,7 @@ test("approve writes a task context receipt; remove deletes it with the item", a
       delivery: { whichFn: async () => false }, // inbox floor; the receipt is about the approval
       memory: null,
       metrics: null,
+      verification: null,
     });
     const replies: ServerMessage[] = [];
     const reply = (m: ServerMessage) => replies.push(m);
@@ -455,6 +464,7 @@ test("setDelivery reroutes dispatch to the chosen agent; ready reports the selec
       },
       memory: null,
       metrics: null,
+      verification: null,
     });
     const replies: ServerMessage[] = [];
     const reply = (m: ServerMessage) => replies.push(m);

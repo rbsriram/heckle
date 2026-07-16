@@ -72,6 +72,11 @@ test("createReproArtifact trims from the last route and writes network fixtures"
   assert.equal(artifact.actions[0].type, "goto");
   assert.equal(artifact.network_fixtures.length, 1);
   assert.equal(artifact.assertions[0].type, "text_equals");
+  assert.deepEqual(artifact.surfaces, {
+    routes: ["/checkout"],
+    files: [],
+    elements: ["testid:increment", "css:#total"],
+  });
   const fixturePath = resolve(root, ".heckle", "repros", artifact.network_fixtures[0].body_ref);
   assert.ok(readFileSync(fixturePath, "utf8").includes("total"));
 });

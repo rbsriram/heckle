@@ -65,6 +65,18 @@ test("port readiness distinguishes free and occupied ports", async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
+test("readiness fails with an install command when Chromium is missing", async () => {
+  await assert.rejects(
+    runReadiness(DEFAULT_CONFIG, {
+      whichFn: async () => false,
+      browserExecutablePath: () => "/missing/chromium",
+      existsFn: () => false,
+      log: () => {},
+    }),
+    /playwright@1\.61\.1 install chromium/,
+  );
+});
+
 test("non-interactive readiness fails fast when the local model is missing", async () => {
   await assert.rejects(
     runReadiness(DEFAULT_CONFIG, {

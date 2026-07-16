@@ -59,7 +59,7 @@ test("a trigger with a trimmed context (no console/network arrays) is recorded, 
       agent: "claude-code",
       privacy: { localOnly: true },
     } as HeckleConfig;
-    const orch = new Orchestrator(config, root, { provider: null, memory: null, metrics: null });
+    const orch = new Orchestrator(config, root, { provider: null, memory: null, metrics: null, verification: null });
     const replies: ServerMessage[] = [];
     // Only a url: a hand-rolled ws client or a stale widget bundle must not kill the daemon
     // (captureRecordFrom runs synchronously in the ws handler, before any try/catch).

@@ -158,6 +158,19 @@ export interface ReproArtifact {
     outcomes?: boolean[];
     last_run_at?: string;
   };
+  surfaces?: {
+    routes: string[];
+    files: string[];
+    elements: string[];
+  };
+  verification?: {
+    status: "captured" | "fixed" | "didnt_land" | "quarantined";
+    runs: number;
+    outcomes: boolean[];
+    last_run_at: string;
+    promoted_at?: string;
+    delta?: string[];
+  };
 }
 
 export interface ContextBundle {

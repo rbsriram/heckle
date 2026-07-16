@@ -69,6 +69,8 @@ test("Ledger records Repro, Fix, Session, Element, Route, and Signal facts with 
     determinism: { runs: 0, pass_rate: 0, quarantined: false },
   };
   ledger.recordRepro(repro, ".heckle/repros/hkl_test.json");
+  ledger.recordVerification(repro, true, []);
+  assert.equal((db.prepare(`SELECT status FROM repros WHERE id=?`).get(repro.id) as { status: string }).status, "fixed");
   const fixId = ledger.recordFix({ issueId: "iss_test", reproId: repro.id, outcome: "passed", authority: "verification" });
   const sessionId = ledger.startSession("reporter-a", "staging");
   ledger.endSession(sessionId);

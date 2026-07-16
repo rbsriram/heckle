@@ -6,7 +6,7 @@ import type { ModelProvider } from "@heckle/providers";
 import type { SpawnFn } from "@heckle/delivery";
 import { type Embedder, Knot, openDb } from "@heckle/memory";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
@@ -60,14 +60,70 @@ async function waitFor<T>(get: () => T | undefined, ms = 2000): Promise<T> {
   }
 }
 
+test("failed replay verification appends evidence and dispatches one retry", async () => {
+  const root = mkdtempSync(resolve(tmpdir(), "heckle-verify-retry-"));
+  try {
+    let calls = 0;
+    const orch = new Orchestrator(config, root, {
+      provider: stubProvider,
+      memory: null,
+      metrics: null,
+      ledger: null,
+      verification: {
+        async verify(artifact) {
+          calls += 1;
+          const fixed = calls === 2;
+          return {
+            reproId: artifact.id,
+            issueId: artifact.issue_id,
+            status: fixed ? "fixed" : "didnt_land",
+            promoted: fixed,
+            results: [],
+            delta: fixed ? [] : ["text_equals expected \"$40\", observed \"$20\""],
+          };
+        },
+      },
+      delivery: { whichFn: async () => true, spawnFn: fakeSpawn },
+    });
+    const replies: ServerMessage[] = [];
+    orch.setEmitter((message) => replies.push(message));
+    const reply = (message: ServerMessage) => replies.push(message);
+    orch.handleMessage(JSON.stringify({ type: "trigger", intentText: "the total doesn't update", context }), reply);
+    const draft = await waitFor(() => replies.find((message) => message.type === "draft"));
+    if (draft.type !== "draft") throw new Error("no draft");
+    orch.handleMessage(JSON.stringify({ type: "approve", feedbackId: draft.feedback.id }), reply);
+    await waitFor(() => replies.find((message) => message.type === "fixStatus" && message.ok));
+    assert.equal(calls, 2);
+    const inbox = readFileSync(resolve(root, ".heckle", "inbox.md"), "utf8");
+    assert.match(inbox, /Verification failed/);
+    assert.match(inbox, /observed \"\$20\"/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("draft opens issue; approved + completed fix marks it fixed; re-flag -> recurring", async () => {
   const root = mkdtempSync(resolve(tmpdir(), "heckle-life-"));
   try {
     const memory = new Knot(openDb(":memory:"), new FakeEmbedder());
+    let verificationRuns = 0;
     const orch = new Orchestrator(config, root, {
       provider: stubProvider,
       memory,
       metrics: null,
+      verification: {
+        async verify(artifact) {
+          verificationRuns += 2;
+          return {
+            reproId: artifact.id,
+            issueId: artifact.issue_id,
+            status: "fixed",
+            promoted: true,
+            results: [],
+            delta: [],
+          };
+        },
+      },
       delivery: { whichFn: async () => true, spawnFn: fakeSpawn }, // claude "available", fix succeeds
     });
     const replies: ServerMessage[] = [];
@@ -85,6 +141,7 @@ test("draft opens issue; approved + completed fix marks it fixed; re-flag -> rec
     await waitFor(() => replies.find((r) => r.type === "delivered"));
     await waitFor(() => (memory.list()[0]?.status === "fixed" ? true : undefined), 1000);
     assert.equal(memory.list()[0].status, "fixed");
+    assert.equal(verificationRuns, 2);
 
     // 3) re-flag the same issue -> "fixed and it's back" (recurring)
     replies.length = 0;

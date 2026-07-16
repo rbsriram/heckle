@@ -22,6 +22,18 @@ export function removeInboxItem(projectRoot: string, feedbackId: string): void {
   }
 }
 
+export function appendVerificationFailure(projectRoot: string, feedbackId: string, delta: string[]): void {
+  const inboxPath = resolve(projectRoot, ".heckle", "inbox.md");
+  if (!existsSync(inboxPath)) return;
+  const text = readFileSync(inboxPath, "utf8");
+  const blocks = text.split(/\n---\n/).map((block) => {
+    if (!block.includes(`heckle ${feedbackId}`)) return block;
+    const detail = delta.map((line) => `- ${line}`).join("\n");
+    return `${block}\n\n**Verification failed. Try again with this observed delta:**\n${detail}`;
+  });
+  writeFileSync(inboxPath, blocks.join("\n---\n"));
+}
+
 export class FileInboxAdapter implements DeliveryAdapter {
   readonly name = "file-inbox" as const;
   private readonly dir: string;

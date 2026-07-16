@@ -34,6 +34,7 @@ export function buildFixPrompt(feedback: Feedback, context: ContextBundle): stri
     `A Heckle QA item was just approved by the user. Address it now.`,
     `This is an ongoing Heckle QA session, so you may have already fixed earlier items here.`,
     `Read .heckle/inbox.md and fix the open item with id ${feedback.id}, then note it done in that file.`,
+    feedback.reproId ? `Before declaring it done, run heckle replay ${feedback.reproId} --runs 2.` : `Run the relevant project tests before declaring it done.`,
     ``,
     `The item:`,
     formatFeedbackMarkdown(feedback, context, { receiptPath: receiptRelPath(feedback.id) }),

@@ -60,6 +60,23 @@ export function createReproArtifact(
   const url = new URL(context.url);
   const id = `hkl_${randomUUID()}`;
   const store = new ReproStore(projectRoot);
+  const actions = trimActions(context.actions ?? [], url, context.selection?.target);
+  const assertions = feedback.assertions?.length ? feedback.assertions : fallbackAssertions(context);
+  const elements = new Set<string>();
+  for (const action of actions) {
+    if (action.type === "goto") continue;
+    const target = action.target;
+    if (target.testid) elements.add(`testid:${target.testid}`);
+    else if (target.role && target.name) elements.add(`role:${target.role}:${target.name}`);
+    else if (target.css) elements.add(`css:${target.css}`);
+  }
+  for (const assertion of assertions) {
+    if (assertion.type !== "text_equals") continue;
+    const target = assertion.target;
+    if (target.testid) elements.add(`testid:${target.testid}`);
+    else if (target.role && target.name) elements.add(`role:${target.role}:${target.name}`);
+    else if (target.css) elements.add(`css:${target.css}`);
+  }
   const networkFixtures: ReproNetworkFixture[] = context.network
     .filter((entry) => entry.status !== undefined && entry.responseBody !== undefined)
     .filter((entry) => new URL(entry.url, url.origin).origin === url.origin)
@@ -86,10 +103,15 @@ export function createReproArtifact(
     route: `${url.pathname}${url.search}${url.hash}`,
     viewport: context.viewport ?? { width: 1280, height: 720 },
     state_seed: context.stateSeed ?? { localStorage: {}, sessionStorage: {}, cookies: [] },
-    actions: trimActions(context.actions ?? [], url, context.selection?.target),
+    actions,
     network_fixtures: networkFixtures,
-    assertions: feedback.assertions?.length ? feedback.assertions : fallbackAssertions(context),
+    assertions,
     utterance,
     determinism: { runs: 0, pass_rate: 0, quarantined: false, outcomes: [] },
+    surfaces: {
+      routes: [`${url.pathname}${url.search}${url.hash}`],
+      files: [],
+      elements: [...elements],
+    },
   };
 }

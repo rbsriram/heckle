@@ -91,10 +91,18 @@ Common credential, session, token, password, and email fields are redacted befor
 ```bash
 npx heckle-dev replay <repro-id>
 npx heckle-dev replay <repro-id> --live
+npx heckle-dev test
+npx heckle-dev test --changed
 ```
 
-Replay runs three times by default. Stable outcomes pass the determinism gate; mixed outcomes are
-quarantined. Install Chromium once if prompted with `npx playwright@1.61.1 install chromium`.
+A dispatched edit is not marked fixed merely because files changed. Heckle runs its repro twice,
+promotes it only when both runs pass, and appends the observed assertion delta for one retry when
+verification fails. `heckle test` runs promoted repros and exits non-zero on a regression.
+`heckle test --changed` uses recorded source mappings when available and safely runs unmapped repros
+until the element-to-source map is populated.
+
+Replay runs three times by default. Three passing outcomes pass the determinism gate; any failure
+quarantines the repro. Install Chromium once if prompted with `npx playwright@1.61.1 install chromium`.
 
 ## which agent fixes it
 

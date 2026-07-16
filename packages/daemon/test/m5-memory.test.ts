@@ -62,7 +62,7 @@ test("first flag stores issue; related re-flag surfaces the still-open hero mome
   const root = mkdtempSync(resolve(tmpdir(), "heckle-m5-"));
   try {
     const memory = new Knot(openDb(":memory:"), new FakeEmbedder());
-    const orch = new Orchestrator(config, root, { provider: stubProvider, memory, metrics: null });
+    const orch = new Orchestrator(config, root, { provider: stubProvider, memory, metrics: null, verification: null });
 
     const replies: ServerMessage[] = [];
     const reply = (m: ServerMessage) => replies.push(m);

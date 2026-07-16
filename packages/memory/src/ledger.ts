@@ -178,6 +178,41 @@ export class Ledger {
     return id;
   }
 
+  recordVerification(artifact: ReproArtifact, fixed: boolean, delta: string[]): string {
+    const outcome = fixed ? "fixed" : "didnt_land";
+    const id = this.recordFix({
+      issueId: artifact.issue_id,
+      reproId: artifact.id,
+      outcome,
+      authority: "verification",
+      diff: delta.length ? delta.join("\n") : undefined,
+    });
+    const now = Date.now();
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db.prepare(`UPDATE repros SET status=?,observed_at=?,authority='verification' WHERE id=?`).run(outcome, now, artifact.id);
+      const issue = this.db.prepare(`SELECT id FROM issues WHERE id=?`).get(artifact.issue_id) as { id: string } | undefined;
+      if (issue) {
+        this.db.prepare(`UPDATE issue_versions SET superseded_at=? WHERE issue_id=? AND superseded_at IS NULL`).run(now, artifact.issue_id);
+        this.db.prepare(
+          `UPDATE issues SET status=?,updated_at=?,observed_at=?,valid_from=?,authority='verification' WHERE id=?`,
+        ).run(fixed ? "fixed" : "open", now, now, now, artifact.issue_id);
+        this.db.prepare(
+          `INSERT INTO issue_versions
+           (issue_id,status,observed_at,valid_from,superseded_at,authority,owner,source,flow,summary,context_ref,flagged_count)
+           SELECT id,status,observed_at,valid_from,NULL,authority,owner,source,flow,summary,context_ref,flagged_count
+           FROM issues WHERE id=?`,
+        ).run(artifact.issue_id);
+      }
+      this.db.exec("COMMIT");
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
+    this.event("repro", artifact.id, "verified", { outcome, delta }, "verification");
+    return id;
+  }
+
   close(): void {
     this.db.close();
   }

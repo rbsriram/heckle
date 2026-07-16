@@ -86,8 +86,19 @@ npx heckle-dev replay <repro-id>
 
 Heckle replays it three times in headless Chromium using recorded network fixtures. Add `--live` to
 hit real endpoints, `--headed` to watch the browser, or `--url <origin>` to override the captured
-origin. Mixed outcomes are quarantined rather than silently promoted. If Chromium is absent, run
-`npx playwright@1.61.1 install chromium` once.
+origin. Any failed gate run quarantines the repro rather than silently promoting it. Startup checks
+that Chromium is installed and prints `npx playwright@1.61.1 install chromium` when it is absent.
+
+After fixes land, Heckle verifies each repro twice. Both runs must pass before the issue becomes
+Fixed and joins the regression suite:
+
+```bash
+npx heckle-dev test
+npx heckle-dev test --changed
+```
+
+The second command reads `git diff --name-only` unless changed files are listed explicitly. It uses
+source mappings when available and includes unmapped repros conservatively.
 
 ## Which coding agent fixes it?
 
@@ -104,5 +115,6 @@ npx heckle-dev config model ...    # change the model (see step 2)
 npx heckle-dev config voice local  # voice input: local (macOS) or webspeech (Chrome)
 npx heckle-dev dev -- <command>    # run your app with Heckle attached
 npx heckle-dev replay <repro-id>   # replay an approved complaint three times
+npx heckle-dev test [--changed]    # run promoted regression repros
 npx heckle-dev help                # all commands
 ```

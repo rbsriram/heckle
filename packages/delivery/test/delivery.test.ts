@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import {
+  appendVerificationFailure,
   ClaudeCodeDispatchAdapter,
   ClipboardAdapter,
   CodexDispatchAdapter,
@@ -57,6 +58,20 @@ test("formatFeedbackMarkdown resolves console/network receipts", () => {
   assert.match(md, /TypeError: total is undefined/);
   assert.match(md, /POST \/api\/order -> 500/);
   assert.match(md, /Update total on qty change/);
+});
+
+test("verification failure evidence is appended to the matching inbox item", async () => {
+  const root = tmp();
+  try {
+    const inbox = new FileInboxAdapter(root);
+    await inbox.deliver(feedback, context);
+    appendVerificationFailure(root, feedback.id, ["expected $40, observed $20"]);
+    const content = readFileSync(inbox.path, "utf8");
+    assert.match(content, /Verification failed/);
+    assert.match(content, /expected \$40, observed \$20/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("FileInboxAdapter appends to .heckle/inbox.md", async () => {

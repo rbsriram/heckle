@@ -9,6 +9,7 @@ import { createRequire, stripTypeScriptTypes } from "node:module";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Orchestrator, type OrchestratorOptions } from "./orchestrator.ts";
+import type { VerificationEngine } from "../../replay/src/index.ts";
 import { createStt, type Stt } from "./stt.ts";
 import { attachWebSocketServer, type WsConnection } from "./ws.ts";
 
@@ -104,6 +105,7 @@ export async function startDaemon(opts: {
   provider?: ModelProvider | null;
   memory?: Knot | null;
   metrics?: Metrics | null;
+  verification?: Pick<VerificationEngine, "verify"> | null;
 }): Promise<DaemonHandle> {
   const { config } = opts;
   const port = opts.port ?? Number(process.env.HECKLE_PORT ?? 4317);
@@ -111,6 +113,7 @@ export async function startDaemon(opts: {
   if ("provider" in opts) orchOpts.provider = opts.provider;
   if ("memory" in opts) orchOpts.memory = opts.memory;
   if ("metrics" in opts) orchOpts.metrics = opts.metrics;
+  if ("verification" in opts) orchOpts.verification = opts.verification;
   const orchestrator = new Orchestrator(config, opts.projectRoot ?? process.cwd(), orchOpts);
   // Warm the local Parakeet worker only when local voice is actually in use.
   const stt = createStt({ enabled: config.voice.provider === "local" });

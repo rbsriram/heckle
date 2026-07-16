@@ -75,6 +75,7 @@ test("orchestrator emits session_start / heckle_triggered / draft_created / draf
       provider: stubProvider,
       memory: null,
       metrics,
+      verification: null,
       delivery: { whichFn: async () => false }, // no claude -> file-inbox floor, no fix_landed
     });
     assert.equal(metrics.counts().session_start, 1, "session_start on construct");

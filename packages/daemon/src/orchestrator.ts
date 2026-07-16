@@ -6,6 +6,7 @@ import { VERSION } from "../../shared/src/version.ts";
 import { createProvider, DRAFTING_PRESETS, type ModelProvider, providerKeyEnv } from "../../providers/src/index.ts";
 import { FeedbackSchema, isNoIssue } from "../../shared/src/feedback.ts";
 import {
+  appendVerificationFailure,
   buildTaskContextReceipt,
   createDeliveryChain,
   type DeliveryChain,
@@ -24,7 +25,7 @@ import { type CaptureLog, createCaptureLog } from "./captures.ts";
 import { loadConfig, loadUserConfig, saveUserConfig } from "./config.ts";
 import { selectionFromConfig, selectionToConfig } from "./delivery-selection.ts";
 import { createMetrics, type Metrics } from "./metrics.ts";
-import { createReproArtifact, ReproStore } from "../../replay/src/index.ts";
+import { createReproArtifact, ReplayEngine, ReproStore, VerificationEngine } from "../../replay/src/index.ts";
 
 export interface StoredTrigger {
   id: string;
@@ -54,11 +55,15 @@ export interface OrchestratorOptions {
   // Explicit metrics override (use `null` to disable the event log in tests).
   metrics?: Metrics | null;
   ledger?: Ledger | null;
+  verification?: Pick<VerificationEngine, "verify"> | null;
 }
 
 export class Orchestrator {
   private triggers: StoredTrigger[] = [];
   private readonly pending = new Map<string, PendingFeedback>();
+  private readonly delivered = new Map<string, PendingFeedback>();
+  private readonly verificationAttempts = new Map<string, number>();
+  private readonly verificationInFlight = new Set<string>();
   // feedbackId -> issueId, kept past approval so a completed fix can mark the issue fixed.
   private readonly issueByFeedback = new Map<string, string>();
   // Rebuilt when the gear changes the drafting model, so these are not readonly.
@@ -74,6 +79,9 @@ export class Orchestrator {
   private readonly metrics: Metrics | null;
   private readonly ledger: Ledger | null;
   private readonly ledgerSessionId?: string;
+  private readonly verification: Pick<VerificationEngine, "verify"> | null;
+  private readonly captureGate: Pick<ReplayEngine, "gate"> | null;
+  private readonly reproStore: ReproStore;
   private readonly captures: CaptureLog;
   // feedbackId -> captureId, kept past delivery so a completed fix can update its history record.
   private readonly captureByFeedback = new Map<string, string>();
@@ -86,6 +94,7 @@ export class Orchestrator {
     this.projectRoot = projectRoot;
     this.heckleDir = resolve(projectRoot, ".heckle");
     this.captures = createCaptureLog(projectRoot);
+    this.reproStore = new ReproStore(projectRoot);
     if ("ledger" in opts) {
       this.ledger = opts.ledger ?? null;
     } else {
@@ -96,6 +105,10 @@ export class Orchestrator {
       }
     }
     this.ledgerSessionId = this.ledger?.startSession();
+    this.verification = "verification" in opts
+      ? opts.verification ?? null
+      : new VerificationEngine(this.reproStore, { ledger: this.ledger ?? undefined });
+    this.captureGate = "verification" in opts ? null : new ReplayEngine(this.reproStore);
 
     if ("metrics" in opts) {
       this.metrics = opts.metrics ?? null;
@@ -117,31 +130,7 @@ export class Orchestrator {
         if (captureId) this.pushCapture(this.captures.setProgress(captureId, line));
       },
       onDispatchComplete: (ok, feedbackId) => {
-        // Record the outcome in the capture history and push status to the widget, either way.
-        // ok = the fix LANDED (files changed), not merely that the process exited 0.
-        const captureId = this.captureByFeedback.get(feedbackId);
-        const capture = captureId ? this.captures.list().find((item) => item.id === captureId) : undefined;
-        if (captureId) this.pushCapture(this.captures.setOutcome(captureId, ok ? "fixed" : "failed", { progress: undefined }));
-        const issueId = this.issueByFeedback.get(feedbackId);
-        if (issueId) {
-          this.ledger?.recordFix({
-            issueId,
-            reproId: capture?.reproId,
-            outcome: ok ? "landed" : "failed",
-            authority: "agent",
-          });
-        }
-        this.captureByFeedback.delete(feedbackId);
-        this.emit({ type: "fixStatus", feedbackId, ok });
-        console.log(`[heckle] fix ${ok ? "landed" : "FAILED"} for ${feedbackId}`);
-        if (!ok) return;
-        this.metrics?.record("fix_landed", { feedbackId });
-        // The agent reported success -> close the memory lifecycle (open -> fixed).
-        if (issueId) {
-          this.memory?.markFixed(issueId);
-          this.issueByFeedback.delete(feedbackId);
-          console.log(`[heckle] issue ${issueId} marked fixed`);
-        }
+        void this.finishDispatch(ok, feedbackId);
       },
     };
     this.selection = selectionFromConfig(config);
@@ -175,6 +164,72 @@ export class Orchestrator {
   /** Pending drafts awaiting approval (read by tests; delivered in M3). */
   getPending(id: string): PendingFeedback | undefined {
     return this.pending.get(id);
+  }
+
+  private async finishDispatch(landed: boolean, feedbackId: string): Promise<void> {
+    if (this.verificationInFlight.has(feedbackId)) return;
+    this.verificationInFlight.add(feedbackId);
+    try {
+      await this.finishDispatchUnlocked(landed, feedbackId);
+    } finally {
+      this.verificationInFlight.delete(feedbackId);
+    }
+  }
+
+  private async finishDispatchUnlocked(landed: boolean, feedbackId: string): Promise<void> {
+    const captureId = this.captureByFeedback.get(feedbackId);
+    const capture = captureId ? this.captures.list().find((item) => item.id === captureId) : undefined;
+    const issueId = this.issueByFeedback.get(feedbackId);
+    if (issueId) {
+      this.ledger?.recordFix({
+        issueId,
+        reproId: capture?.reproId,
+        outcome: landed ? "landed" : "failed",
+        authority: "agent",
+      });
+    }
+    let fixed = landed;
+    let delta: string[] = [];
+    if (landed && this.verification) {
+      const artifact = capture?.reproId ? this.reproStore.load(capture.reproId) : undefined;
+      if (!artifact) {
+        fixed = false;
+        delta = ["verification could not run because the delivered task has no repro artifact"];
+      } else {
+        try {
+          const verification = await this.verification.verify(artifact);
+          fixed = verification.status === "fixed";
+          delta = verification.delta;
+        } catch (err) {
+          fixed = false;
+          delta = [`verification could not run: ${(err as Error).message}`];
+        }
+      }
+    }
+    if (!fixed && landed && delta.length && (this.verificationAttempts.get(feedbackId) ?? 0) < 1) {
+      this.verificationAttempts.set(feedbackId, 1);
+      appendVerificationFailure(this.projectRoot, feedbackId, delta);
+      if (captureId) this.pushCapture(this.captures.setOutcome(captureId, "failed", { progress: delta[0] }));
+      const task = this.delivered.get(feedbackId);
+      if (task) {
+        console.log(`[heckle] verification failed for ${feedbackId}; dispatching one evidence-backed retry`);
+        await this.delivery.deliver(task.feedback, task.context);
+        return;
+      }
+    }
+    if (captureId) this.pushCapture(this.captures.setOutcome(captureId, fixed ? "fixed" : "failed", { progress: undefined }));
+    this.captureByFeedback.delete(feedbackId);
+    this.verificationAttempts.delete(feedbackId);
+    this.delivered.delete(feedbackId);
+    this.emit({ type: "fixStatus", feedbackId, ok: fixed });
+    console.log(`[heckle] fix ${fixed ? "verified" : "DID NOT LAND"} for ${feedbackId}`);
+    if (!fixed) return;
+    this.metrics?.record("fix_landed", { feedbackId });
+    if (issueId) {
+      this.memory?.markFixed(issueId, this.verification ? "verification" : "agent");
+      this.issueByFeedback.delete(feedbackId);
+      console.log(`[heckle] issue ${issueId} marked fixed`);
+    }
   }
 
   close(): void {
@@ -453,7 +508,11 @@ export class Orchestrator {
         pending.issueId ?? `iss_${feedback.id}`,
         pending.transcript ?? feedback.intent,
       );
-      const artifactPath = new ReproStore(this.projectRoot).save(artifact);
+      const artifactPath = this.reproStore.save(artifact);
+      if (this.captureGate) {
+        const gate = await this.captureGate.gate(artifact, { runs: 3 });
+        if (!gate.stable) console.warn(`[heckle] repro ${artifact.id} quarantined after capture gate`);
+      }
       this.ledger?.recordRepro(artifact, artifactPath);
       this.ledger?.recordRoute(artifact.route);
       feedback.reproId = artifact.id;
@@ -497,6 +556,7 @@ export class Orchestrator {
         // Remember the link so the async fix-progress/completion callbacks can update this record.
         if (dispatched) this.captureByFeedback.set(feedbackId, pending.captureId);
       }
+      this.delivered.set(feedbackId, { ...pending, feedback });
       this.pending.delete(feedbackId);
       console.log(
         `[heckle] delivered ${feedbackId}: ${results.map((r) => `${r.adapter}:${r.ok ? "ok" : "fail"}`).join(" ")}`,

@@ -1,9 +1,11 @@
 import { spawn as nodeSpawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { createServer } from "node:net";
 import { createInterface } from "node:readline/promises";
 import type { HeckleConfig } from "../../../packages/shared/src/index.ts";
 import { defaultWhich } from "../../../packages/delivery/src/agent-dispatch.ts";
 import type { SpawnFn, WhichFn } from "../../../packages/delivery/src/types.ts";
+import { chromium } from "playwright";
 
 export interface OllamaReadiness {
   state: "ready" | "missing-model" | "unreachable";
@@ -26,6 +28,8 @@ export interface ReadinessOptions {
   confirm?: (question: string) => Promise<boolean>;
   env?: NodeJS.ProcessEnv;
   log?: (line: string) => void;
+  browserExecutablePath?: () => string;
+  existsFn?: (path: string) => boolean;
 }
 
 const AGENTS: Array<{ agent: AgentReadiness["agent"]; binary: string }> = [
@@ -130,6 +134,11 @@ export async function runReadiness(config: HeckleConfig, options: ReadinessOptio
     throw new Error("local-only mode requires Ollama on a loopback URL. Fix heckle.config.ts before starting.");
   }
   log(`[heckle] Node ${process.versions.node} ready`);
+  const browserPath = (options.browserExecutablePath ?? (() => chromium.executablePath()))();
+  if (!(options.existsFn ?? existsSync)(browserPath)) {
+    throw new Error("Chromium is required for replay verification. Run `npx playwright@1.61.1 install chromium`, then start Heckle again.");
+  }
+  log("[heckle] replay: Chromium ready");
   log(`[heckle] agents: ${agents.map((a) => `${a.agent}=${a.available ? "ready" : "missing"}`).join(" ")}`);
 
   const route = config.delivery.order.find(

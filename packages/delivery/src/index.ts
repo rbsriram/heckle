@@ -20,7 +20,7 @@ export {
   type ReceiptInput,
   type TaskContextReceipt,
 } from "./receipt.ts";
-export { FileInboxAdapter, removeInboxItem } from "./file-inbox.ts";
+export { FileInboxAdapter, appendVerificationFailure, removeInboxItem } from "./file-inbox.ts";
 export { ClipboardAdapter } from "./clipboard.ts";
 export { ClaudeCodeDispatchAdapter } from "./claude-code.ts";
 export { CursorDispatchAdapter } from "./cursor.ts";
