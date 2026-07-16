@@ -13,21 +13,24 @@ Scope: current working tree compared with `docs/spec-100x.md`, features F1 throu
 
 ## Executive summary
 
+This document began as the pre-implementation audit. The detailed sections below preserve that
+baseline. The current implementation status after P0-P6 is:
+
 | Feature | Overall status | Short version |
 |---|---|---|
-| F1. Repro-as-artifact | Absent, with capture foundations | Context and rrweb buffers exist; replayable repro artifacts do not. |
-| F2. Verification engine | Absent | “Fixed” currently means the working tree changed, not that a repro passed. |
-| F3. MCP server | Absent | No MCP transport, command, or tools exist. |
-| F4. Ambient capture | Absent, with signal capture foundations | Console and fetch data are continuously buffered, but no signal detection, digest, dedupe, threshold, or proposal flow exists. |
-| F5. Instant edit lane | Partial in the parked fastlane prototype | One copy-edit path works, but it is positional text replacement rather than an AST codemod and lacks the required safety, memory, repro, and undo contracts. |
-| F6. Memory layer | Partial | SQLite issue recall exists; the 100x ledger and most entities do not. |
-| F7. Router | Partial in the parked fastlane prototype | Rules classify copy/style/behavioral requests and failures fall through; there is no complete instant/agent/question router or LLM classification stage. |
-| F8. Distribution and install | Partial | The runtime command and basic agent auto-init exist, but the package is private, README still requires clone/link, and there is no full wizard, MCP registration, marketplace distribution, or remote capture mode. |
-| F9. Team layer | Absent | No reporter/shipper roles, shared ledger, owner, or source fields exist. |
+| F1. Repro-as-artifact | Implemented | Versioned artifacts capture actions, redacted state, fixtures, assertions, selector fallbacks, and a three-run gate. |
+| F2. Verification engine | Implemented | Fixed requires two replay passes; failures carry assertion deltas; promoted repros run through `heckle test`. |
+| F3. MCP server | Implemented locally | Seven tools run over stdio. External directory submissions remain release work. |
+| F4. Ambient capture | Implemented | Local signals deduplicate into quiet proposals with preceding action windows and remembered dismissal. |
+| F5. Instant edit lane | Implemented for React Vite/Next | Five AST edit classes, source mapping, deterministic facts, replay assertions, and stale-safe undo are present. |
+| F6. Memory layer | Implemented | Schema v5 has QA entities, team members, bitemporal versions, authority, owner/source, and JSON export. |
+| F7. Router | Implemented, model hook partial | Rules route instant/agent/question requests. Ambiguous model classification has a hook but no provider-backed classifier yet. |
+| F8. Distribution and install | Implemented for npm and local capture export | `heckle-dev@0.0.1` is published; capture-only v1 uses local file export/import. |
+| F9. Team layer | Minimum primitives implemented | Reporter/shipper roles and issue provenance exist. Hosted shared-ledger authorization is outside local v1. |
 
-The largest architectural mismatch is F2: the UI and memory can say **Fixed** after an agent merely changes the working tree. `runDetachedFix()` fingerprints the tree before and after dispatch, and `Orchestrator.onDispatchComplete` turns that change into `fixed`. This is useful delivery telemetry, but it is explicitly weaker than the 100x definition of fixed.
+The baseline audit's largest mismatch was F2: the UI could say **Fixed** after a working-tree change. That is now resolved. The tree change only starts verification; two replay passes are the authority for Fixed.
 
-The audit found a phasing mismatch: P5 fastlane work had started before P0–P2. That prototype is now parked off `main`, and the spec phasing inserts a minimum F6 ledger migration between P1 and P2.
+The baseline also found P5 prototype work ahead of P0-P2. Its useful classifier and source locator were reconciled only after replay, verification, MCP, ambient capture, and the ledger were established.
 
 ## F1. Repro-as-artifact
 
